@@ -54,13 +54,11 @@ jobs:
             "dist/ADBKing-${VERSION}-arm64.dmg" "dist/imgui_folder"
           echo "[OK] DMG created at dist/ADBKing-${VERSION}-arm64.dmg"
           ls -lh "dist/ADBKing-${VERSION}-arm64.dmg"
-          echo "ARTIFACT_PATH=dist/ADBKing-${VERSION}-arm64.dmg" >> $GITHUB_ENV
-          echo "ARTIFACT_NAME=ADBKing-${VERSION}-arm64.dmg" >> $GITHUB_ENV
           echo "::endgroup::"
       - uses: actions/upload-artifact@v4
         with:
           name: macos-arm64
-          path: ${{ env.ARTIFACT_PATH }}
+          path: dist/*.dmg
 
   build-windows:
     name: Windows
@@ -120,7 +118,6 @@ jobs:
         run: |
           echo "::group::Create MSI"
           $date = Get-Date -Format 'yyyyMMdd-HHmm'
-          echo "VERSION_DATE=$date" >> $env:GITHUB_ENV
           mkdir dist
           copy desktop-icons\icon-windows.ico icon-windows.ico
           echo "This software is provided as-is without any warranty. Use at your own risk." | Out-File -FilePath "license.rtf" -Encoding UTF8
@@ -134,13 +131,11 @@ jobs:
           $msiName = "ADBKing-1.0.1-$date.msi"
           copy imgui_app.msi "dist/$msiName"
           Write-Host "[OK] MSI created at dist/$msiName"
-          Write-Host "ARTIFACT_PATH=dist/$msiName" >> $env:GITHUB_ENV
-          Write-Host "ARTIFACT_NAME=$msiName" >> $env:GITHUB_ENV
           echo "::endgroup::"
       - uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: ${{ env.ARTIFACT_PATH }}
+          path: dist/*.msi
 
   build-linux:
     name: Linux
@@ -185,13 +180,11 @@ jobs:
           tar czf "ADBKing-${VERSION}-linux-x86_64.tar.gz" ADBKing/
           echo "[OK] Package created at dist/ADBKing-${VERSION}-linux-x86_64.tar.gz"
           ls -lh "ADBKing-${VERSION}-linux-x86_64.tar.gz"
-          echo "ARTIFACT_PATH=dist/ADBKing-${VERSION}-linux-x86_64.tar.gz" >> $GITHUB_ENV
-          echo "ARTIFACT_NAME=ADBKing-${VERSION}-linux-x86_64.tar.gz" >> $GITHUB_ENV
           echo "::endgroup::"
       - uses: actions/upload-artifact@v4
         with:
           name: linux
-          path: ${{ env.ARTIFACT_PATH }}
+          path: dist/*.tar.gz
 
   create-release:
     needs: [build-mac-arm64, build-windows, build-linux]
