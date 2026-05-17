@@ -5,6 +5,7 @@
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 #include <SDL_opengl.h>
+#include "spotlight.h"
 #include <iostream>
 #include <stdexcept>
 #include <cstdio>
@@ -251,7 +252,8 @@ int main(int argc, char* argv[]) {
         while (running) {
             SDL_Event event;
             while (SDL_PollEvent(&event)) {
-                ImGui_ImplSDL2_ProcessEvent(&event);
+                if (!SpotlightHandleSDLEvent(event))
+                    ImGui_ImplSDL2_ProcessEvent(&event);
                 if (event.type == SDL_QUIT)
                     running = false;
             }
@@ -281,6 +283,23 @@ int main(int argc, char* argv[]) {
                 }
                 ImGui::EndMainMenuBar();
             }
+
+            {
+                static bool registered = false;
+                if (!registered) {
+                    RegisterSpotlightItem({"About", "Seaweed", [&]() { st.showAbout = !st.showAbout; }, [&]() { return st.showAbout; }});
+                    RegisterSpotlightItem({"Theme", "Seaweed", [&]() { st.showTheme = !st.showTheme; }, [&]() { return st.showTheme; }});
+                    RegisterSpotlightItem({"Restart", "Seaweed", [&]() { RestartApp(argc, argv, window, gl_context, st); }, nullptr});
+                    RegisterSpotlightItem({"Close", "Seaweed", [&]() { running = false; }, nullptr});
+                    RegisterSpotlightItem({"Demo Window", "Seaweed", [&]() { st.showDemo = !st.showDemo; }, [&]() { return st.showDemo; }});
+                    RegisterSpotlightItem({"Device List", "Devices", [&]() { st.showDeviceList = !st.showDeviceList; }, [&]() { return st.showDeviceList; }});
+                    RegisterSpotlightItem({"Emulator", "Devices", [&]() { st.showEmulator = !st.showEmulator; }, [&]() { return st.showEmulator; }});
+                    RegisterSpotlightItem({"Wireless", "Devices", [&]() { st.showWireless = !st.showWireless; }, [&]() { return st.showWireless; }});
+                    registered = true;
+                }
+            }
+
+            RenderSpotlight();
 
             if (st.showAbout) {
                 if (ImGui::Begin("About Seaweed", &st.showAbout)) {

@@ -116,3 +116,7 @@ void ShowPreferencePopup() {
 void SetPreferencePopupVisible(bool visible) {
     g_showPreferencePopup = visible;
 }
+
+bool IsPreferencePopupVisible() {
+    return g_showPreferencePopup;
+}

@@ -51,3 +51,7 @@ void ShowThemePopup() {
 void SetThemePopupVisible(bool visible) {
     g_showThemePopup = visible;
 }
+
+bool IsThemePopupVisible() {
+    return g_showThemePopup;
+}

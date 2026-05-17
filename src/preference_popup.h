@@ -5,3 +5,6 @@ void ShowPreferencePopup();
 
 // Function to set the preference popup visibility
 void SetPreferencePopupVisible(bool visible);
+
+// Function to check if the preference popup is currently visible
+bool IsPreferencePopupVisible();

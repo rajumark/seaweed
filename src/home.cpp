@@ -4,6 +4,7 @@
 #include "theme_popup.h"
 #include "preference_popup.h"
 #include "confirmation_dialog.h"
+#include "spotlight.h"
 #include "imgui.h"
 #include <iostream>
 
@@ -80,7 +81,21 @@ void ShowHome() {
             }
             ImGui::EndMainMenuBar();
         }
-        
+
+        {
+            static bool registered = false;
+            if (!registered) {
+                RegisterSpotlightItem({"Devices List", "Devices", []() { SetDevicePage(DevicePage::DEVICES_LIST); }, nullptr});
+                RegisterSpotlightItem({"Emulators", "Devices", []() { SetDevicePage(DevicePage::EMULATORS); }, nullptr});
+                RegisterSpotlightItem({"Wireless ADB", "Devices", []() { SetDevicePage(DevicePage::WIRELESS_ADB); }, nullptr});
+                RegisterSpotlightItem({"Developer Guide", "Devices", []() { SetDevicePage(DevicePage::DEVELOPER_GUIDE); }, nullptr});
+                RegisterSpotlightItem({"Close", "Settings", []() { WindowActionsHelper::CloseMainWindow(); }, nullptr});
+                RegisterSpotlightItem({"Theme", "Settings", []() { SetThemePopupVisible(true); }, []() { return IsThemePopupVisible(); }});
+                RegisterSpotlightItem({"Preference", "Settings", []() { SetPreferencePopupVisible(true); }, []() { return IsPreferencePopupVisible(); }});
+                registered = true;
+            }
+        }
+
         // Show popups if needed
         ShowThemePopup();
         ShowPreferencePopup();
