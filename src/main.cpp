@@ -24,6 +24,12 @@
 #include <curl/curl.h>
 #endif
 
+struct WindowState {
+    int w, h, x, y;
+    bool showAbout, showTheme, showDemo;
+    bool showDeviceList, showEmulator, showWireless;
+};
+
 static std::string ConfigPath() {
     const char* home = getenv(
 #ifdef _WIN32
@@ -32,24 +38,36 @@ static std::string ConfigPath() {
         "HOME"
 #endif
     );
-    return home ? std::string(home) + "/.seaweed_size" : "";
+    return home ? std::string(home) + "/.seaweed_state" : "";
 }
 
-static void SaveWindowSize(int w, int h, int x, int y) {
+static void SaveState(const WindowState& s) {
     std::string path = ConfigPath();
     if (path.empty()) return;
     FILE* f = fopen(path.c_str(), "w");
-    if (f) { fprintf(f, "%d\n%d\n%d\n%d", w, h, x, y); fclose(f); }
+    if (f) {
+        fprintf(f, "%d\n%d\n%d\n%d\n%d\n%d\n%d\n%d\n%d\n%d",
+            s.w, s.h, s.x, s.y, (int)s.showAbout, (int)s.showTheme, (int)s.showDemo,
+            (int)s.showDeviceList, (int)s.showEmulator, (int)s.showWireless);
+        fclose(f);
+    }
 }
 
-static bool LoadWindowSize(int& w, int& h, int& x, int& y) {
+static bool LoadState(WindowState& s) {
     std::string path = ConfigPath();
     if (path.empty()) return false;
     FILE* f = fopen(path.c_str(), "r");
     if (!f) return false;
-    int r = fscanf(f, "%d\n%d\n%d\n%d", &w, &h, &x, &y);
+    int a, t, d, dl, e, wl;
+    int r = fscanf(f, "%d\n%d\n%d\n%d\n%d\n%d\n%d\n%d\n%d\n%d",
+        &s.w, &s.h, &s.x, &s.y, &a, &t, &d, &dl, &e, &wl);
     fclose(f);
-    return r == 4 && w > 0 && h > 0;
+    if (r >= 7 && s.w > 0 && s.h > 0) {
+        s.showAbout = a; s.showTheme = t; s.showDemo = d;
+        if (r == 10) { s.showDeviceList = dl; s.showEmulator = e; s.showWireless = wl; }
+        return true;
+    }
+    return false;
 }
 
 #ifdef _WIN32
@@ -82,11 +100,12 @@ static std::string ExecCmd(const char* cmd) {
     return result;
 }
 
-static void RestartApp(int argc, char* argv[], SDL_Window* window, SDL_GLContext gl_context) {
-    int w, h, x, y;
-    SDL_GetWindowSize(window, &w, &h);
-    SDL_GetWindowPosition(window, &x, &y);
-    SaveWindowSize(w, h, x, y);
+static void RestartApp(int argc, char* argv[], SDL_Window* window, SDL_GLContext gl_context,
+    WindowState& state)
+{
+    SDL_GetWindowSize(window, &state.w, &state.h);
+    SDL_GetWindowPosition(window, &state.x, &state.y);
+    SaveState(state);
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
@@ -131,12 +150,12 @@ int main(int argc, char* argv[]) {
         SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
         SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
-        int winW = 1280, winH = 720, winX = SDL_WINDOWPOS_CENTERED, winY = SDL_WINDOWPOS_CENTERED;
-        LoadWindowSize(winW, winH, winX, winY);
+        WindowState st = {1280, 720, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 0, 0, 0, 0, 0, 0};
+        LoadState(st);
 
         SDL_Window* window = SDL_CreateWindow("ADBKing", 
-            winX, winY,
-            winW, winH, 
+            st.x, st.y,
+            st.w, st.h, 
             SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN);
         
         if (!window) {
@@ -180,9 +199,6 @@ int main(int argc, char* argv[]) {
         }
         
         bool running = true;
-        bool show_demo_window = false;
-        bool show_about = false;
-        bool show_theme = false;
         bool isDarkTheme = true;
 
         std::string osVersion = ExecCmd(
@@ -248,19 +264,26 @@ int main(int argc, char* argv[]) {
             {
                 if (ImGui::BeginMenu("Seaweed"))
                 {
-                    if (ImGui::MenuItem("About")) { show_about = true; }
-                    if (ImGui::MenuItem("Theme")) { show_theme = true; }
-                    if (ImGui::MenuItem("Restart")) { RestartApp(argc, argv, window, gl_context); }
+                    if (ImGui::MenuItem("About", nullptr, &st.showAbout)) {}
+                    if (ImGui::MenuItem("Theme", nullptr, &st.showTheme)) {}
+                    if (ImGui::MenuItem("Restart")) { RestartApp(argc, argv, window, gl_context, st); }
                     if (ImGui::MenuItem("Close")) { running = false; }
                     ImGui::Separator();
-                    if (ImGui::MenuItem("Demo Window", nullptr, &show_demo_window)) {}
+                    if (ImGui::MenuItem("Demo Window", nullptr, &st.showDemo)) {}
+                    ImGui::EndMenu();
+                }
+                if (ImGui::BeginMenu("Devices"))
+                {
+                    if (ImGui::MenuItem("Device List")) { st.showDeviceList = true; }
+                    if (ImGui::MenuItem("Emulator")) { st.showEmulator = true; }
+                    if (ImGui::MenuItem("Wireless")) { st.showWireless = true; }
                     ImGui::EndMenu();
                 }
                 ImGui::EndMainMenuBar();
             }
 
-            if (show_about) {
-                if (ImGui::Begin("About Seaweed", &show_about)) {
+            if (st.showAbout) {
+                if (ImGui::Begin("About Seaweed", &st.showAbout)) {
                     char buf[1024];
 
                     ImGui::Text("Name"); ImGui::SameLine(120);
@@ -292,8 +315,8 @@ int main(int argc, char* argv[]) {
                 ImGui::End();
             }
 
-            if (show_theme) {
-                if (ImGui::Begin("Theme", &show_theme)) {
+            if (st.showTheme) {
+                if (ImGui::Begin("Theme", &st.showTheme)) {
                     bool wasDark = isDarkTheme;
                     ImGui::Text("Current: %s", isDarkTheme ? "Dark" : "Light");
                     ImGui::Separator();
@@ -307,8 +330,27 @@ int main(int argc, char* argv[]) {
                 ImGui::End();
             }
 
-            if (show_demo_window)
-                ImGui::ShowDemoWindow(&show_demo_window);
+            if (st.showDeviceList) {
+                if (ImGui::Begin("Device List", &st.showDeviceList)) {
+                    ImGui::Text("Coming soon...");
+                }
+                ImGui::End();
+            }
+            if (st.showEmulator) {
+                if (ImGui::Begin("Emulator", &st.showEmulator)) {
+                    ImGui::Text("Coming soon...");
+                }
+                ImGui::End();
+            }
+            if (st.showWireless) {
+                if (ImGui::Begin("Wireless", &st.showWireless)) {
+                    ImGui::Text("Coming soon...");
+                }
+                ImGui::End();
+            }
+
+            if (st.showDemo)
+                ImGui::ShowDemoWindow(&st.showDemo);
 
             ImGui::Render();
             int w, h;
@@ -320,10 +362,9 @@ int main(int argc, char* argv[]) {
             SDL_GL_SwapWindow(window);
         }
 
-        int curW, curH, curX, curY;
-        SDL_GetWindowSize(window, &curW, &curH);
-        SDL_GetWindowPosition(window, &curX, &curY);
-        SaveWindowSize(curW, curH, curX, curY);
+        SDL_GetWindowSize(window, &st.w, &st.h);
+        SDL_GetWindowPosition(window, &st.x, &st.y);
+        SaveState(st);
 
         ImGui_ImplOpenGL3_Shutdown();
         ImGui_ImplSDL2_Shutdown();
