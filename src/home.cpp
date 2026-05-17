@@ -7,18 +7,64 @@
 #include "imgui.h"
 #include <iostream>
 
+static DevicePage g_currentPage = DevicePage::NONE;
+
+void SetDevicePage(DevicePage page) {
+    g_currentPage = page;
+}
+
+DevicePage GetDevicePage() {
+    return g_currentPage;
+}
+
+static void ShowDevicePageContent(DevicePage page) {
+    ImGui::BeginChild("DevicePageContent", ImVec2(0, 0), true);
+    
+    const char* title = "";
+    switch (page) {
+        case DevicePage::DEVICES_LIST:   title = "Devices List"; break;
+        case DevicePage::EMULATORS:      title = "Emulators"; break;
+        case DevicePage::WIRELESS_ADB:   title = "Wireless ADB"; break;
+        case DevicePage::DEVELOPER_GUIDE: title = "Developer Guide"; break;
+        default: break;
+    }
+    
+    ImGui::TextWrapped("%s", title);
+    ImGui::Separator();
+    ImGui::Dummy(ImVec2(0, 10));
+    
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
+    ImGui::SetCursorPosX((ImGui::GetWindowWidth() - ImGui::CalcTextSize("Coming soon...").x) * 0.5f);
+    ImGui::SetCursorPosY(ImGui::GetWindowHeight() * 0.5f);
+    ImGui::Text("Coming soon...");
+    ImGui::PopStyleColor();
+    
+    ImGui::EndChild();
+}
+
 void ShowHome() {
     try {
-        
-        // Get the window size
-        ImVec2 windowSize = ImGui::GetIO().DisplaySize;
-        
-        // Calculate menu bar height (typically around 20-25 pixels)
-        float menuBarHeight = ImGui::GetFrameHeight();
         
         // Add main menu bar (before the window)
         if (ImGui::BeginMainMenuBar())
         {
+            if (ImGui::BeginMenu("Devices"))
+            {
+                if (ImGui::MenuItem("Devices List")) {
+                    SetDevicePage(DevicePage::DEVICES_LIST);
+                }
+                if (ImGui::MenuItem("Emulators")) {
+                    SetDevicePage(DevicePage::EMULATORS);
+                }
+                if (ImGui::MenuItem("Wireless ADB")) {
+                    SetDevicePage(DevicePage::WIRELESS_ADB);
+                }
+                if (ImGui::MenuItem("Developer Guide")) {
+                    SetDevicePage(DevicePage::DEVELOPER_GUIDE);
+                }
+                ImGui::EndMenu();
+            }
+            
             if (ImGui::BeginMenu("Settings"))
             {
                 if (ImGui::MenuItem("Close")) {
@@ -39,21 +85,12 @@ void ShowHome() {
         ShowThemePopup();
         ShowPreferencePopup();
         
-        // Create a full-window, non-draggable window
-        ImGui::SetNextWindowPos(ImVec2(0, menuBarHeight));
-        ImGui::SetNextWindowSize(ImVec2(windowSize.x, windowSize.y - menuBarHeight));
+        ImGui::SetNextWindowSize(ImVec2(600, 400), ImGuiCond_FirstUseEver);
         
-        ImGuiWindowFlags windowFlags = 
-            ImGuiWindowFlags_NoTitleBar |
-            ImGuiWindowFlags_NoResize |
-            ImGuiWindowFlags_NoMove |
-            ImGuiWindowFlags_NoBringToFrontOnFocus |
-            ImGuiWindowFlags_NoCollapse |
-            ImGuiWindowFlags_NoScrollbar |
-            ImGuiWindowFlags_NoScrollWithMouse;
-        
-        if (ImGui::Begin("Home", nullptr, windowFlags)) {
-            // Empty main area — nothing rendered yet
+        if (ImGui::Begin("Home", nullptr)) {
+            if (g_currentPage != DevicePage::NONE) {
+                ShowDevicePageContent(g_currentPage);
+            }
         }
         ImGui::End();
         
