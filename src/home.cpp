@@ -90,8 +90,8 @@ void ShowHome() {
                 RegisterSpotlightItem({"Wireless ADB", "Devices", []() { SetDevicePage(DevicePage::WIRELESS_ADB); }, nullptr});
                 RegisterSpotlightItem({"Developer Guide", "Devices", []() { SetDevicePage(DevicePage::DEVELOPER_GUIDE); }, nullptr});
                 RegisterSpotlightItem({"Close", "Settings", []() { WindowActionsHelper::CloseMainWindow(); }, nullptr});
-                RegisterSpotlightItem({"Theme", "Settings", []() { SetThemePopupVisible(true); }, []() { return IsThemePopupVisible(); }});
-                RegisterSpotlightItem({"Preference", "Settings", []() { SetPreferencePopupVisible(true); }, []() { return IsPreferencePopupVisible(); }});
+                RegisterSpotlightItem({"Theme", "Settings", []() { SetThemePopupVisible(true); }, []() { return IsThemePopupVisible(); }, {"dark", "light", "colors", "appearance", "style"}});
+                RegisterSpotlightItem({"Preference", "Settings", []() { SetPreferencePopupVisible(true); }, []() { return IsPreferencePopupVisible(); }, {"settings", "options", "configure"}});
                 registered = true;
             }
         }

@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <functional>
+#include <vector>
 #include <SDL.h>
 
 struct SpotlightItem {
@@ -8,6 +9,8 @@ struct SpotlightItem {
     std::string category;
     std::function<void()> action;
     std::function<bool()> isOpen;
+    std::vector<std::string> keywords;
+    bool toggleItem = true;
 };
 
 void RegisterSpotlightItem(const SpotlightItem& item);

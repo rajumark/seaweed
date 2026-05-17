@@ -269,7 +269,15 @@ int main(int argc, char* argv[]) {
                     if (ImGui::MenuItem("About", nullptr, &st.showAbout)) {}
                     if (ImGui::MenuItem("Theme", nullptr, &st.showTheme)) {}
                     if (ImGui::MenuItem("Restart")) { RestartApp(argc, argv, window, gl_context, st); }
-                    if (ImGui::MenuItem("Close")) { running = false; }
+                    if (ImGui::MenuItem("Close App")) { running = false; }
+                    if (ImGui::MenuItem("Close All")) {
+                        st.showAbout = false;
+                        st.showTheme = false;
+                        st.showDemo = false;
+                        st.showDeviceList = false;
+                        st.showEmulator = false;
+                        st.showWireless = false;
+                    }
                     ImGui::Separator();
                     if (ImGui::MenuItem("Demo Window", nullptr, &st.showDemo)) {}
                     ImGui::EndMenu();
@@ -288,10 +296,21 @@ int main(int argc, char* argv[]) {
                 static bool registered = false;
                 if (!registered) {
                     RegisterSpotlightItem({"About", "Seaweed", [&]() { st.showAbout = !st.showAbout; }, [&]() { return st.showAbout; }});
-                    RegisterSpotlightItem({"Theme", "Seaweed", [&]() { st.showTheme = !st.showTheme; }, [&]() { return st.showTheme; }});
+                    RegisterSpotlightItem({"Theme", "Seaweed", [&]() { st.showTheme = !st.showTheme; }, [&]() { return st.showTheme; }, {"dark", "light", "colors", "appearance", "style"}});
                     RegisterSpotlightItem({"Restart", "Seaweed", [&]() { RestartApp(argc, argv, window, gl_context, st); }, nullptr});
-                    RegisterSpotlightItem({"Close", "Seaweed", [&]() { running = false; }, nullptr});
-                    RegisterSpotlightItem({"Demo Window", "Seaweed", [&]() { st.showDemo = !st.showDemo; }, [&]() { return st.showDemo; }});
+                    RegisterSpotlightItem({"Close App", "Seaweed", [&]() { running = false; }, nullptr});
+                    RegisterSpotlightItem({"Close All", "Seaweed", [&]() {
+                        st.showAbout = false;
+                        st.showTheme = false;
+                        st.showDemo = false;
+                        st.showDeviceList = false;
+                        st.showEmulator = false;
+                        st.showWireless = false;
+                    }, [&]() {
+                        return st.showAbout || st.showTheme || st.showDemo ||
+                               st.showDeviceList || st.showEmulator || st.showWireless;
+                    }, {"clean", "hide", "windows"}, false});
+                    RegisterSpotlightItem({"Demo Window", "Seaweed", [&]() { st.showDemo = !st.showDemo; }, [&]() { return st.showDemo; }, {"debug", "test", "example"}});
                     RegisterSpotlightItem({"Device List", "Devices", [&]() { st.showDeviceList = !st.showDeviceList; }, [&]() { return st.showDeviceList; }});
                     RegisterSpotlightItem({"Emulator", "Devices", [&]() { st.showEmulator = !st.showEmulator; }, [&]() { return st.showEmulator; }});
                     RegisterSpotlightItem({"Wireless", "Devices", [&]() { st.showWireless = !st.showWireless; }, [&]() { return st.showWireless; }});

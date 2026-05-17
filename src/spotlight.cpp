@@ -12,6 +12,13 @@ static bool g_focusSearch = false;
 static std::string g_prevSearch;
 static Uint32 g_lastShift = 0;
 
+struct HistoryEntry {
+    std::string label;
+    std::string category;
+};
+static std::vector<HistoryEntry> g_history;
+static const int MAX_HISTORY = 10;
+
 void RegisterSpotlightItem(const SpotlightItem& item) {
     for (const auto& e : g_items) {
         if (e.label == item.label && e.category == item.category)
@@ -43,9 +50,42 @@ bool SpotlightHandleSDLEvent(const SDL_Event& event) {
     return false;
 }
 
+static void AddToHistory(const SpotlightItem& item) {
+    for (auto it = g_history.begin(); it != g_history.end(); ++it) {
+        if (it->label == item.label && it->category == item.category) {
+            g_history.erase(it);
+            break;
+        }
+    }
+    g_history.insert(g_history.begin(), {item.label, item.category});
+    if (g_history.size() > MAX_HISTORY)
+        g_history.pop_back();
+}
+
 static void ActivateItem(const SpotlightItem& item) {
-    if (item.action) item.action();
+    if (item.toggleItem) {
+        bool alreadyOpen = item.isOpen ? item.isOpen() : false;
+        if (!alreadyOpen) {
+            if (item.action) item.action();
+        }
+    } else {
+        if (item.action) item.action();
+    }
+    AddToHistory(item);
     g_open = false;
+}
+
+static bool ItemMatchesQuery(const SpotlightItem& item, const std::string& query) {
+    std::string hay = item.label + " " + item.category;
+    std::transform(hay.begin(), hay.end(), hay.begin(), ::tolower);
+    if (hay.find(query) != std::string::npos) return true;
+    for (const auto& kw : item.keywords) {
+        std::string kwLower = kw;
+        std::transform(kwLower.begin(), kwLower.end(), kwLower.begin(), ::tolower);
+        if (kwLower.find(query) != std::string::npos)
+            return true;
+    }
+    return false;
 }
 
 void RenderSpotlight() {
@@ -75,15 +115,24 @@ void RenderSpotlight() {
     };
     std::vector<Match> matches;
 
-    for (int i = 0; i < (int)g_items.size(); i++) {
-        std::string hay = g_items[i].label + " " + g_items[i].category;
-        std::transform(hay.begin(), hay.end(), hay.begin(), ::tolower);
-        if (query.empty() || hay.find(query) != std::string::npos) {
-            matches.push_back({i});
+    if (query.empty() && !g_history.empty()) {
+        for (const auto& h : g_history) {
+            for (int i = 0; i < (int)g_items.size(); i++) {
+                if (g_items[i].label == h.label && g_items[i].category == h.category) {
+                    matches.push_back({i});
+                    break;
+                }
+            }
+        }
+    } else {
+        for (int i = 0; i < (int)g_items.size(); i++) {
+            if (ItemMatchesQuery(g_items[i], query))
+                matches.push_back({i});
         }
     }
 
-    if (g_prevSearch != query) {
+    bool searchChanged = (g_prevSearch != query);
+    if (searchChanged) {
         g_selected = 0;
         g_prevSearch = query;
     }
@@ -92,11 +141,18 @@ void RenderSpotlight() {
 
     ImGui::Separator();
 
+    bool hasHeader = (query.empty() && !g_history.empty());
+
     ImGui::BeginChild("ItemsList", ImVec2(0, 0), ImGuiChildFlags_NavFlattened, 0);
 
     if (matches.empty()) {
         ImGui::TextDisabled("No matching menus");
     } else {
+        if (hasHeader) {
+            ImGui::TextDisabled("Recent");
+            ImGui::Indent();
+        }
+
         for (int i = 0; i < (int)matches.size(); i++) {
             const auto& item = g_items[matches[i].idx];
             bool selected = (i == g_selected);
@@ -117,6 +173,9 @@ void RenderSpotlight() {
             }
             ImGui::PopID();
         }
+
+        if (hasHeader)
+            ImGui::Unindent();
     }
 
     ImGui::EndChild();
