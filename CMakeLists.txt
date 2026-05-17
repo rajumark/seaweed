@@ -53,75 +53,8 @@ target_include_directories(imgui_app PRIVATE
 
 # ✅ Find SDL2 - use pkg-config on Unix systems, vcpkg/manual on Windows
 if(WIN32)
-    # Set static runtime for Windows to avoid MSVCP140.dll and VCRUNTIME140.dll dependencies
-    # This links both C and C++ runtime libraries statically, eliminating the need for
-    # Visual C++ Redistributable on target systems
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-    
-    # Force static runtime linking with explicit compiler flags
-    set(CMAKE_CXX_FLAGS_RELEASE "/MT /EHsc")
-    set(CMAKE_C_FLAGS_RELEASE "/MT")
-    set(CMAKE_CXX_FLAGS_DEBUG "/MTd /EHsc")
-    set(CMAKE_C_FLAGS_DEBUG "/MTd")
-    
-    # Ensure these flags are applied to the target
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MT /EHsc")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MT")
-    
-    find_package(SDL2 REQUIRED)
-    
-    # Find CURL - try vcpkg first, then manual paths
-    find_package(CURL)
-    
-    if(NOT CURL_FOUND)
-        find_path(CURL_INCLUDE_DIR curl/curl.h
-            PATHS
-            "C:/tools/curl/current/include"
-            "C:/curl/include"
-            "C:/Program Files/curl/include"
-            "C:/Program Files (x86)/curl/include"
-        )
-        
-        find_library(CURL_LIBRARY
-            NAMES libcurl libcurl_a curl
-            PATHS
-            "C:/tools/curl/current/lib"
-            "C:/curl/lib"
-            "C:/Program Files/curl/lib"
-            "C:/Program Files (x86)/curl/lib"
-        )
-        
-        if(CURL_INCLUDE_DIR AND CURL_LIBRARY)
-            set(CURL_FOUND TRUE)
-            set(CURL_INCLUDE_DIRS ${CURL_INCLUDE_DIR})
-            set(CURL_LIBRARIES ${CURL_LIBRARY})
-        endif()
-    endif()
-    
-    if(NOT SDL2_FOUND)
-        find_path(SDL2_INCLUDE_DIR SDL.h
-            PATHS
-            "C:/tools/sdl2/current/include"
-            "C:/SDL2/include"
-            "C:/Program Files/SDL2/include"
-            "C:/Program Files (x86)/SDL2/include"
-        )
-        
-        find_library(SDL2_LIBRARY
-            NAMES SDL2
-            PATHS
-            "C:/tools/sdl2/current/lib/x64"
-            "C:/SDL2/lib/x64"
-            "C:/Program Files/SDL2/lib/x64"
-            "C:/Program Files (x86)/SDL2/lib/x64"
-        )
-        
-        if(SDL2_INCLUDE_DIR AND SDL2_LIBRARY)
-            set(SDL2_FOUND TRUE)
-            set(SDL2_INCLUDE_DIRS ${SDL2_INCLUDE_DIR})
-            set(SDL2_LIBRARIES ${SDL2_LIBRARY})
-        endif()
-    endif()
+    find_package(SDL2 CONFIG REQUIRED)
+    find_package(CURL CONFIG REQUIRED)
 else()
     # Unix/macOS: Use pkg-config
     find_package(PkgConfig REQUIRED)
@@ -223,32 +156,11 @@ if(SDL2_FOUND)
 </dict>
 </plist>")
         endif()
+    elseif(WIN32)
+        target_link_libraries(imgui_app PRIVATE SDL2::SDL2main SDL2::SDL2-static)
     else()
-        # For Windows, prefer static linking to avoid runtime dependencies
-        if(WIN32)
-            # Try to find static SDL2 library for Windows
-            find_library(SDL2_STATIC_LIB_WIN
-                NAMES SDL2main SDL2
-                PATHS
-                ${SDL2_LIBRARY_DIRS}
-                "C:/tools/sdl2/current/lib/x64"
-                "C:/SDL2/lib/x64"
-                "C:/Program Files/SDL2/lib/x64"
-                "C:/Program Files (x86)/SDL2/lib/x64"
-            )
-            
-            if(SDL2_STATIC_LIB_WIN)
-                message(STATUS "Found static SDL2 library for Windows: ${SDL2_STATIC_LIB_WIN}")
-                target_link_libraries(imgui_app PRIVATE ${SDL2_STATIC_LIB_WIN})
-            else()
-                # Fallback to dynamic linking but ensure SDL2.dll is bundled
-                target_link_libraries(imgui_app PRIVATE ${SDL2_LIBRARIES})
-                message(STATUS "Using dynamic SDL2 linking - SDL2.dll must be bundled")
-            endif()
-        else()
-            # For other platforms, use dynamic linking
-            target_link_libraries(imgui_app PRIVATE ${SDL2_LIBRARIES})
-        endif()
+        # For other platforms, use dynamic linking
+        target_link_libraries(imgui_app PRIVATE ${SDL2_LIBRARIES})
     endif()
     
     if(NOT WIN32 AND NOT APPLE)
@@ -265,25 +177,19 @@ if(SDL2_FOUND)
     endif()
     
     # Link CURL
-    if(CURL_FOUND)
+    if(WIN32)
+        target_link_libraries(imgui_app PRIVATE CURL::libcurl)
+        message(STATUS "CURL linked via vcpkg")
+    elseif(CURL_FOUND)
         target_include_directories(imgui_app PRIVATE ${CURL_INCLUDE_DIRS})
         if(TARGET CURL::libcurl)
             target_link_libraries(imgui_app PRIVATE CURL::libcurl)
         else()
             target_link_libraries(imgui_app PRIVATE ${CURL_LIBRARIES})
         endif()
-        if(WIN32)
-            # Static curl on Windows needs system libraries for socket, crypto, etc.
-            target_link_libraries(imgui_app PRIVATE ws2_32 crypt32 bcrypt secur32 iphlpapi)
-            find_package(ZLIB QUIET)
-            if(ZLIB_FOUND)
-                target_link_libraries(imgui_app PRIVATE ZLIB::ZLIB)
-            endif()
-        endif()
         message(STATUS "CURL found and linked successfully")
     else()
         message(WARNING "CURL not found - download functionality will be disabled")
-        # Define a macro to disable download functionality
         target_compile_definitions(imgui_app PRIVATE DISABLE_DOWNLOADS)
     endif()
 else()
