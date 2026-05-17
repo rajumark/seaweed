@@ -97,10 +97,11 @@ std::string DeviceManager::ExecuteCommand(const std::string& command) const {
     std::array<char, 128> buffer;
     
     // Use _popen on Windows, popen on Unix-like systems
+    auto pipeCloser = [](FILE* f) { if (f) pclose(f); };
 #ifdef _WIN32
     std::unique_ptr<FILE, decltype(&_pclose)> pipe(_popen(command.c_str(), "r"), _pclose);
 #else
-    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(command.c_str(), "r"), pclose);
+    std::unique_ptr<FILE, decltype(pipeCloser)> pipe(popen(command.c_str(), "r"), pipeCloser);
 #endif
     
     if (!pipe) {

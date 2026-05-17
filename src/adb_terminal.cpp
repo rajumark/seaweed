@@ -54,7 +54,8 @@ std::string ExecuteADBCommandWithStreaming(const std::string& command) {
     }
     #else
     std::string redirectCommand = fullCommand + " 2>&1";
-    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(redirectCommand.c_str(), "r"), pclose);
+    auto pipeCloser = [](FILE* f) { if (f) pclose(f); };
+    std::unique_ptr<FILE, decltype(pipeCloser)> pipe(popen(redirectCommand.c_str(), "r"), pipeCloser);
     #endif
     
     // Capture output

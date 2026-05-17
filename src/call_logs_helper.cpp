@@ -8,6 +8,11 @@
 #include <ctime>
 #include <iomanip>
 
+#ifdef _WIN32
+#define popen _popen
+#define pclose _pclose
+#endif
+
 std::vector<CallLogEntry> CallLogsHelper::GetCallLogs(const std::string& deviceId) {
     std::vector<CallLogEntry> callLogs;
     

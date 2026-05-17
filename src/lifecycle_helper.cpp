@@ -7,6 +7,11 @@
 #include <cstdlib>
 #include <cstring>
 
+#ifdef _WIN32
+#define popen _popen
+#define pclose _pclose
+#endif
+
 std::vector<LifecycleEntry> LifecycleHelper::GetLifecycleData(const std::string& deviceId) {
     std::vector<LifecycleEntry> lifecycleData;
     

@@ -32,6 +32,11 @@ add_executable(imgui_app
 
 
 
+# ✅ Find OpenGL on Linux
+if(NOT WIN32 AND NOT APPLE)
+    find_package(OpenGL REQUIRED)
+endif()
+
 # Set static runtime for the target on Windows
 if(WIN32)
     set_target_properties(imgui_app PROPERTIES
@@ -253,6 +258,10 @@ if(SDL2_FOUND)
 
     if(WIN32)
         target_link_libraries(imgui_app PRIVATE opengl32)
+    endif()
+    
+    if(NOT WIN32 AND NOT APPLE)
+        target_link_libraries(imgui_app PRIVATE OpenGL::GL)
     endif()
     
     # Link CURL
