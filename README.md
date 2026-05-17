@@ -1,5 +1,5 @@
 ## Build and Run the App
-
+ 
 ### Method 1: Using CMake (Recommended)
 
 1. **Create build directory and configure**:
