@@ -1,84 +1,115 @@
 #pragma once
 #include <string>
+#include <string_view>
 #include <vector>
 #include <chrono>
 #include <thread>
 #include <mutex>
 #include <atomic>
 
-// Device information structure
+enum class AdbDeviceState {
+    Unknown,
+    Device,
+    Offline,
+    Unauthorized,
+    Bootloader,
+    Recovery,
+    Sideload,
+    Rescue,
+    NoPermissions,
+    Host,
+    Connecting
+};
+
+inline AdbDeviceState ParseAdbState(std::string_view state) {
+    if (state == "device")         return AdbDeviceState::Device;
+    if (state == "offline")        return AdbDeviceState::Offline;
+    if (state == "unauthorized")   return AdbDeviceState::Unauthorized;
+    if (state == "bootloader")     return AdbDeviceState::Bootloader;
+    if (state == "recovery")       return AdbDeviceState::Recovery;
+    if (state == "sideload")       return AdbDeviceState::Sideload;
+    if (state == "rescue")         return AdbDeviceState::Rescue;
+    if (state == "no permissions") return AdbDeviceState::NoPermissions;
+    if (state == "host")           return AdbDeviceState::Host;
+    if (state == "connecting")     return AdbDeviceState::Connecting;
+    return AdbDeviceState::Unknown;
+}
+
+inline const char* AdbStateToString(AdbDeviceState state) {
+    switch (state) {
+        case AdbDeviceState::Device:        return "Device";
+        case AdbDeviceState::Offline:       return "Offline";
+        case AdbDeviceState::Unauthorized:  return "Unauthorized";
+        case AdbDeviceState::Bootloader:    return "Bootloader";
+        case AdbDeviceState::Recovery:      return "Recovery";
+        case AdbDeviceState::Sideload:      return "Sideload";
+        case AdbDeviceState::Rescue:        return "Rescue";
+        case AdbDeviceState::NoPermissions: return "No Permissions";
+        case AdbDeviceState::Host:          return "Host";
+        case AdbDeviceState::Connecting:    return "Connecting";
+        default:                            return "Unknown";
+    }
+}
+
 struct DeviceInfo {
     std::string deviceId;
     std::string deviceName;
     std::string status;
     bool isConnected;
-    
-    DeviceInfo() : isConnected(false) {}
-    DeviceInfo(const std::string& id, const std::string& name, const std::string& stat) 
-        : deviceId(id), deviceName(name), status(stat), isConnected(true) {}
+    AdbDeviceState state = AdbDeviceState::Unknown;
+    std::string osVersion;
+
+    DeviceInfo() : isConnected(false), state(AdbDeviceState::Unknown) {}
+    DeviceInfo(const std::string& id, const std::string& name, const std::string& stat,
+               AdbDeviceState devState = AdbDeviceState::Unknown,
+               const std::string& osVer = "")
+        : deviceId(id), deviceName(name), status(stat), isConnected(true), state(devState), osVersion(osVer) {}
 };
 
 class DeviceManager {
 public:
     static DeviceManager& GetInstance();
-    
-    // Initialize the device manager
+
     void Initialize(const std::string& adbPath);
-    
-    // Start background device monitoring
+
     void StartMonitoring();
-    
-    // Stop background device monitoring
+
     void StopMonitoring();
-    
-    // Get current devices (thread-safe)
+
     std::vector<DeviceInfo> GetDevices() const;
-    
-    // Get selected device ID (thread-safe)
+
     std::string GetSelectedDeviceId() const;
-    
-    // Set selected device ID (thread-safe)
+
     void SetSelectedDeviceId(const std::string& deviceId);
-    
-    // Check if device is connected (thread-safe)
+
     bool IsDeviceConnected(const std::string& deviceId) const;
-    
-    // Clear all devices (thread-safe)
+
     void ClearDevices();
-    
-    // Check if monitoring is active
+
     bool IsMonitoring() const { return m_monitoring.load(); }
-    
-    // Execute ADB command and get output
+
     std::string ExecuteCommand(const std::string& command) const;
-    
-    // Destructor
+
     ~DeviceManager();
 
 private:
     DeviceManager() = default;
     DeviceManager(const DeviceManager&) = delete;
     DeviceManager& operator=(const DeviceManager&) = delete;
-    
-    // Background monitoring thread function
+
     void MonitoringThread();
-    
-    // Get device property
+
     std::string GetDeviceProperty(const std::string& deviceId, const std::string& property) const;
-    
-    // Get human-readable device name
+
     std::string GetHumanNameByID(const std::string& deviceId) const;
-    
-    // Update device list (called from background thread)
+
     void UpdateDeviceListInternal();
-    
-    // Member variables
+
     std::string m_adbPath;
     std::vector<DeviceInfo> m_devices;
     std::string m_selectedDeviceId;
     std::chrono::steady_clock::time_point m_lastDeviceUpdate;
-    
-    // Threading support
+
     mutable std::mutex m_mutex;
     std::thread m_monitoringThread;
     std::atomic<bool> m_monitoring{false};

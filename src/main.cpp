@@ -6,6 +6,8 @@
 #include <SDL.h>
 #include <SDL_opengl.h>
 #include "spotlight.h"
+#include "device_manager.h"
+#include "global_config.h"
 #include <iostream>
 #include <stdexcept>
 #include <cstdio>
@@ -243,6 +245,10 @@ int main(int argc, char* argv[]) {
 #endif
         }
 
+        GlobalConfig::SetADBPath(adbPath);
+        GlobalConfig::InitializeDeviceManager();
+        GlobalConfig::StartDeviceMonitoring();
+
         std::string adbVersion;
         if (!adbPath.empty()) {
             adbVersion = ExecCmd((adbPath + " version").c_str());
@@ -346,6 +352,11 @@ int main(int argc, char* argv[]) {
                     snprintf(buf, sizeof(buf), "%s", adbPath.empty() ? "Not found" : adbPath.c_str());
                     ImGui::InputText("##adbpath", buf, sizeof(buf), ImGuiInputTextFlags_ReadOnly);
 
+                    ImGui::Text("Device"); ImGui::SameLine(120);
+                    std::string selectedDevice = GlobalConfig::GetSelectedDeviceId();
+                    snprintf(buf, sizeof(buf), "%s", selectedDevice.empty() ? "None" : selectedDevice.c_str());
+                    ImGui::InputText("##device", buf, sizeof(buf), ImGuiInputTextFlags_ReadOnly);
+
                     ImGui::Text("ADB Version"); ImGui::SameLine(120);
                     ImGui::InputTextMultiline("##adbver", &adbVersion[0], adbVersion.size() + 1,
                         ImVec2(-1, -1), ImGuiInputTextFlags_ReadOnly);
@@ -370,7 +381,50 @@ int main(int argc, char* argv[]) {
 
             if (st.showDeviceList) {
                 if (ImGui::Begin("Device List", &st.showDeviceList)) {
-                    ImGui::Text("Coming soon...");
+                    auto devices = GlobalConfig::GetDevices();
+                    std::string selectedId = GlobalConfig::GetSelectedDeviceId();
+
+                    if (devices.empty()) {
+                        ImGui::TextDisabled("No devices found. Connect a device or start an emulator.");
+                    } else {
+                        ImGui::Text("Devices: %zu", devices.size());
+                        ImGui::Separator();
+
+                        if (ImGui::BeginTable("devices", 4,
+                            ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
+                            ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_Resizable))
+                        {
+                            ImGui::TableSetupColumn("Device");
+                            ImGui::TableSetupColumn("ID");
+                            ImGui::TableSetupColumn("OS");
+                            ImGui::TableSetupColumn("State");
+                            ImGui::TableHeadersRow();
+
+                            for (int i = 0; i < (int)devices.size(); i++) {
+                                const auto& d = devices[i];
+                                bool isSelected = (d.deviceId == selectedId);
+
+                                ImGui::TableNextRow();
+                                ImGui::TableNextColumn();
+
+                                ImGui::PushID(i);
+                                std::string label = (isSelected ? "[x] " : "[ ] ") + d.deviceName;
+                                if (ImGui::Selectable(label.c_str(), isSelected,
+                                    ImGuiSelectableFlags_SpanAllColumns))
+                                {
+                                    GlobalConfig::SetSelectedDeviceId(d.deviceId);
+                                }
+                                ImGui::TableNextColumn();
+                                ImGui::Text("%s", d.deviceId.c_str());
+                                ImGui::TableNextColumn();
+                                ImGui::Text("%s", d.osVersion.empty() ? "-" : d.osVersion.c_str());
+                                ImGui::TableNextColumn();
+                                ImGui::Text("%s", AdbStateToString(d.state));
+                                ImGui::PopID();
+                            }
+                            ImGui::EndTable();
+                        }
+                    }
                 }
                 ImGui::End();
             }
@@ -408,6 +462,7 @@ int main(int argc, char* argv[]) {
         ImGui_ImplSDL2_Shutdown();
         ImGui::DestroyContext();
         SDL_GL_DeleteContext(gl_context);
+        GlobalConfig::StopDeviceMonitoring();
         SDL_DestroyWindow(window);
         SDL_Quit();
 #ifdef DISABLE_DOWNLOADS

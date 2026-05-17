@@ -205,61 +205,56 @@ std::string DeviceManager::GetHumanNameByID(const std::string& deviceId) const {
 
 void DeviceManager::UpdateDeviceListInternal() {
     try {
-        // Check if ADB path is available
         if (m_adbPath.empty()) {
             std::lock_guard<std::mutex> lock(m_mutex);
             m_devices.clear();
             return;
         }
-        
-        // Execute "adb devices" command
+
         std::string command = "\"" + m_adbPath + "\" devices";
         std::string output = ExecuteCommand(command);
-        
+
         std::vector<DeviceInfo> newDevices;
         std::istringstream iss(output);
         std::string line;
-        
-        // Skip the first line (header)
+
         std::getline(iss, line);
-        
+
         while (std::getline(iss, line)) {
             if (line.empty()) continue;
-            
+
             std::istringstream lineStream(line);
-            std::string deviceId, status;
-            
-            if (lineStream >> deviceId >> status) {
-                // Only add devices that are connected
-                if (status == "device") {
-                    // Get human-readable device name using the new logic
-                    std::string deviceName = GetHumanNameByID(deviceId);
-                    
-                    newDevices.emplace_back(deviceId, deviceName, status);
-                }
+            std::string deviceId, stateStr;
+            if (!(lineStream >> deviceId >> stateStr)) continue;
+
+            AdbDeviceState state = ParseAdbState(stateStr);
+            std::string deviceName;
+            std::string osVersion;
+
+            if (state == AdbDeviceState::Device) {
+                deviceName = GetHumanNameByID(deviceId);
+                osVersion = GetDeviceProperty(deviceId, "ro.build.version.release");
             }
+
+            newDevices.emplace_back(deviceId, deviceName, stateStr, state, osVersion);
         }
-        
-        // Update the device list (thread-safe)
+
         {
             std::lock_guard<std::mutex> lock(m_mutex);
             m_devices = newDevices;
-            
-            // If selected device is no longer connected, clear the selection
+
             if (!m_selectedDeviceId.empty()) {
-                bool deviceStillConnected = false;
-                for (const auto& device : m_devices) {
-                    if (device.deviceId == m_selectedDeviceId) {
-                        deviceStillConnected = true;
+                bool found = false;
+                for (const auto& d : m_devices) {
+                    if (d.deviceId == m_selectedDeviceId) {
+                        found = true;
                         break;
                     }
                 }
-                if (!deviceStillConnected) {
-                    m_selectedDeviceId.clear();
-                }
+                if (!found) m_selectedDeviceId.clear();
             }
         }
-        
+
     } catch (const std::exception& e) {
         std::cerr << "Error updating device list: " << e.what() << std::endl;
         std::lock_guard<std::mutex> lock(m_mutex);
