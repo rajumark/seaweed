@@ -253,6 +253,9 @@ void DeviceManager::UpdateDeviceListInternal() {
                 }
                 if (!found) m_selectedDeviceId.clear();
             }
+
+            if (m_selectedDeviceId.empty() && !m_devices.empty())
+                m_selectedDeviceId = m_devices[0].deviceId;
         }
 
     } catch (const std::exception& e) {
