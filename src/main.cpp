@@ -177,7 +177,7 @@ int main(int argc, char* argv[]) {
 
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
-        ImGui::GetIO();
+        ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
         if (!ImGui_ImplSDL2_InitForOpenGL(window, gl_context)) {
             std::cerr << "ImGui SDL2 implementation initialization failed" << std::endl;
@@ -274,9 +274,9 @@ int main(int argc, char* argv[]) {
                 }
                 if (ImGui::BeginMenu("Devices"))
                 {
-                    if (ImGui::MenuItem("Device List")) { st.showDeviceList = true; }
-                    if (ImGui::MenuItem("Emulator")) { st.showEmulator = true; }
-                    if (ImGui::MenuItem("Wireless")) { st.showWireless = true; }
+                    if (ImGui::MenuItem("Device List", nullptr, &st.showDeviceList)) {}
+                    if (ImGui::MenuItem("Emulator", nullptr, &st.showEmulator)) {}
+                    if (ImGui::MenuItem("Wireless", nullptr, &st.showWireless)) {}
                     ImGui::EndMenu();
                 }
                 ImGui::EndMainMenuBar();
