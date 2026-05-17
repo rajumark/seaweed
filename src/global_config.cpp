@@ -2,7 +2,7 @@
 #include "key_value_store.h"
 #include "setup.h"
 #include "device_manager.h"
-#include "font_manager.h"
+
 #include "imgui.h"
 #include <iostream>
 #include <filesystem>
@@ -61,47 +61,6 @@ namespace GlobalConfig {
         } else {
             ImGui::StyleColorsLight();
         }
-    }
-    
-    void SetFontSize(int fontSize) {
-        if (g_fontSize != fontSize) {
-            g_fontSize = fontSize;
-            g_fontNeedsReload = true;
-            
-            // Don't immediately reload fonts here - it can cause crashes during ImGui rendering
-            // The fonts will be reloaded when LoadFont is called at a safe time
-        }
-    }
-    
-    int GetFontSize() {
-        return g_fontSize;
-    }
-    
-    void ApplyFontSize(int fontSize) {
-        SetFontSize(fontSize);
-    }
-    
-    ImFont* GetCurrentFont() {
-        if (g_currentFont == nullptr) {
-            g_currentFont = FontManager::GetInstance().GetDefaultFont();
-        }
-        return g_currentFont;
-    }
-    
-    bool FontNeedsReload() {
-        return g_fontNeedsReload;
-    }
-    
-    void SetFontReloaded() {
-        g_fontNeedsReload = false;
-    }
-    
-    void LoadFont(int fontSize) {
-        // Use the FontManager to load the default font (JetBrains Mono)
-        g_currentFont = FontManager::GetInstance().LoadDefaultFont(static_cast<float>(fontSize));
-        
-        // Mark that fonts have been reloaded
-        g_fontNeedsReload = false;
     }
     
     void InitializeDeviceManager() {

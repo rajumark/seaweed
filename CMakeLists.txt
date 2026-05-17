@@ -30,25 +30,6 @@ add_executable(imgui_app
     ${IMGUI_SRC}
 )
 
-# Create a custom target to copy font files to the build directory
-add_custom_target(copy_fonts ALL
-    COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:imgui_app>
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_SOURCE_DIR}/imgui/misc/fonts/JetBrainsMono.ttf
-        $<TARGET_FILE_DIR:imgui_app>/JetBrainsMono.ttf
-    COMMENT "Copying font files to build directory"
-    DEPENDS imgui_app
-)
-
-# Add post-build command to copy fonts for all configurations
-add_custom_command(TARGET imgui_app POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:imgui_app>
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_SOURCE_DIR}/imgui/misc/fonts/JetBrainsMono.ttf
-        $<TARGET_FILE_DIR:imgui_app>/JetBrainsMono.ttf
-    COMMENT "Copying font files post-build"
-)
-
 
 
 # Set static runtime for the target on Windows

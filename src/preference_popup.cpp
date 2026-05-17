@@ -1,5 +1,4 @@
 #include "preference_popup.h"
-#include "global_config.h"
 #include "imgui.h"
 #include "key_value_store.h"
 #include <string>
@@ -24,24 +23,7 @@ void ShowPreferencePopup() {
     if (ImGui::Begin("Preferences", &g_showPreferencePopup, popupFlags)) {
         ImGuiIO& io = ImGui::GetIO();
 
-        // Font size section (load at target size instead of scaling)
-        ImGui::Text("Font Size");
-        ImGui::Separator();
-
-        static int fontPx = 18;
-        if (ImGui::IsWindowAppearing()) {
-            fontPx = GlobalConfig::GetFontSize();
-        }
-
-        if (ImGui::SliderInt("Size (px)", &fontPx, 10, 32)) {
-            GlobalConfig::SetFontSize(fontPx);
-            KeyValueStore::SetInt("font_px", fontPx);
-        }
-
-        ImGui::Text("Hint: Keep GlobalScale at 1.0 for sharpest text");
-        ImGui::Spacing();
-        ImGui::Separator();
-
+        
         // UI Style Controls
         ImGui::Text("UI Style");
         ImGui::Separator();

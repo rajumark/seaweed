@@ -15,9 +15,6 @@
       <Component Id="MainExecutable" Guid="PUT-EXE-GUID">
         <File Id="imgui_app.exe" Name="imgui_app.exe" Source="build/Release/imgui_app.exe" KeyPath="yes"/>
       </Component>
-      <Component Id="FontFiles" Guid="PUT-FONT-GUID">
-        <File Id="JetBrainsMono.ttf" Name="JetBrainsMono.ttf" Source="build/Release/JetBrainsMono.ttf"/>
-      </Component>
       <Component Id="StartMenuShortcut" Guid="PUT-SHORTCUT-GUID">
         <Shortcut Id="StartMenuShortcut" Directory="ApplicationProgramsFolder" Name="ADBKing"
           Description="ADBKing" Target="[INSTALLFOLDER]imgui_app.exe" WorkingDirectory="INSTALLFOLDER"
@@ -27,7 +24,7 @@
       </Component>
     </DirectoryRef>
     <ComponentGroup Id="ProductComponents">
-      <ComponentRef Id="MainExecutable"/><ComponentRef Id="FontFiles"/><ComponentRef Id="StartMenuShortcut"/>
+              <ComponentRef Id="MainExecutable"/><ComponentRef Id="StartMenuShortcut"/>
     </ComponentGroup>
   </Product>
 </Wix>

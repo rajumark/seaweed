@@ -39,11 +39,6 @@ MenuScreen GetCurrentScreen() {
 
 void ShowHome() {
     try {
-        // Apply the current font
-        ImFont* currentFont = GlobalConfig::GetCurrentFont();
-        if (currentFont) {
-            ImGui::PushFont(currentFont, currentFont->LegacySize);
-        }
         
         // Get the window size
         ImVec2 windowSize = ImGui::GetIO().DisplaySize;
@@ -255,10 +250,6 @@ void ShowHome() {
         // Show confirmation dialogs (if any are open)
         ShowConfirmationDialog();
         
-        // Pop the font if we pushed one
-        if (GlobalConfig::GetCurrentFont()) {
-            ImGui::PopFont();
-        }
         
     } catch (const std::exception& e) {
         std::cerr << "Exception in ShowHome: " << e.what() << std::endl;

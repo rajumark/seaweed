@@ -15,7 +15,7 @@
 #include "key_value_store.h"
 #include "apps_action_cook_helper.h"
 
-#include "font_manager.h"
+
 #include <chrono>
 #include <thread>
 #ifdef DISABLE_DOWNLOADS
@@ -120,14 +120,10 @@ int main() {
             style.FrameBorderSize = KeyValueStore::GetFloat("style_frame_border", style.FrameBorderSize);
             style.PopupBorderSize = KeyValueStore::GetFloat("style_popup_border", style.PopupBorderSize);
 
-            // Load preferred font size (default 18) and persist if not present
-            int savedFontPx = KeyValueStore::GetInt("font_px", 18);
-            GlobalConfig::SetFontSize(savedFontPx);
         }
 
-        // Apply the current theme (already set above) and initialize fonts
+        // Apply the current theme
         GlobalConfig::ApplyTheme(GlobalConfig::GetCurrentTheme());
-        GlobalConfig::LoadFont(GlobalConfig::GetFontSize());
         
         if (!ImGui_ImplSDL2_InitForOpenGL(window, gl_context)) {
             std::cerr << "ImGui SDL2 implementation initialization failed" << std::endl;
@@ -194,16 +190,6 @@ int main() {
                 ImGui_ImplSDL2_ProcessEvent(&event);
                 if (event.type == SDL_QUIT)
                     running = false;
-            }
-
-            // Check if font needs to be reloaded
-            if (GlobalConfig::FontNeedsReload()) {
-                GlobalConfig::LoadFont(GlobalConfig::GetFontSize());
-            }
-            
-            // Also check if FontManager needs to reload fonts
-            if (FontManager::GetInstance().FontsNeedReload()) {
-                FontManager::GetInstance().ReloadFonts();
             }
 
             ImGui_ImplOpenGL3_NewFrame();

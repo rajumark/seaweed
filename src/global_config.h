@@ -4,9 +4,6 @@
 #include <chrono>
 #include "device_manager.h"
 
-// Forward declaration
-struct ImFont;
-
 // Theme enumeration
 enum class Theme {
     LIGHT,
@@ -17,8 +14,6 @@ enum class Theme {
 namespace GlobalConfig {
     extern std::string g_adbPath;
     extern Theme g_currentTheme;
-    extern int g_fontSize;
-    extern ImFont* g_currentFont;
     
     // Function to set the ADB path globally
     void SetADBPath(const std::string& path);
@@ -34,14 +29,6 @@ namespace GlobalConfig {
     Theme GetCurrentTheme();
     void ApplyTheme(Theme theme);
     
-    // Font size management functions
-    void SetFontSize(int fontSize);
-    int GetFontSize();
-    void ApplyFontSize(int fontSize);
-    ImFont* GetCurrentFont();
-    void LoadFont(int fontSize);
-    bool FontNeedsReload();
-    void SetFontReloaded();
     
     // Device management functions (now delegate to DeviceManager)
     void UpdateDeviceList();
