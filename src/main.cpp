@@ -10,12 +10,11 @@
 
 #include "home.h"
 #include "setup.h"
-#include "force_update.h"
 #include "global_config.h"
 #include "device_manager.h"
 #include "key_value_store.h"
 #include "apps_action_cook_helper.h"
-#include "date_expiration.h"
+
 #include "font_manager.h"
 #include <chrono>
 #include <thread>
@@ -130,9 +129,6 @@ int main() {
         GlobalConfig::ApplyTheme(GlobalConfig::GetCurrentTheme());
         GlobalConfig::LoadFont(GlobalConfig::GetFontSize());
         
-        // Check software expiration before proceeding
-        bool softwareExpired = IsSoftwareExpired();
-        
         if (!ImGui_ImplSDL2_InitForOpenGL(window, gl_context)) {
             std::cerr << "ImGui SDL2 implementation initialization failed" << std::endl;
             ImGui::DestroyContext();
@@ -154,35 +150,6 @@ int main() {
         
         bool running = true;
         bool setupComplete = false;
-        
-        // Check if software is expired and show force update screen
-        if (softwareExpired) {
-            while (running) {
-                SDL_Event event;
-                while (SDL_PollEvent(&event)) {
-                    ImGui_ImplSDL2_ProcessEvent(&event);
-                    if (event.type == SDL_QUIT)
-                        running = false;
-                }
-
-                ImGui_ImplOpenGL3_NewFrame();
-                ImGui_ImplSDL2_NewFrame();
-                ImGui::NewFrame();
-
-                ShowForceUpdate();
-
-                ImGui::Render();
-                int w, h;
-                SDL_GL_GetDrawableSize(window, &w, &h);
-                glViewport(0, 0, w, h);
-                glClearColor(1, 1, 1, 1);
-                glClear(GL_COLOR_BUFFER_BIT);
-                ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-                SDL_GL_SwapWindow(window);
-            }
-            // If we reach here, the user closed the force update window
-            return 0;
-        }
         
         // Show setup page until user manually completes it
         // auto startTime = std::chrono::steady_clock::now(); // Disabled for now

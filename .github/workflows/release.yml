@@ -1,0 +1,193 @@
+name: Release
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-mac-arm64:
+    name: macOS ARM64
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '#go')
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: brew install cmake sdl2 create-dmg
+      - name: Build
+        env:
+          PKG_CONFIG_PATH: /opt/homebrew/opt/sdl2/lib/pkgconfig
+        run: |
+          rm -rf build && mkdir build && cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64
+          make -j$(sysctl -n hw.ncpu)
+      - name: Package DMG
+        run: |
+          VERSION=1.0.1
+          mkdir -p dist/imgui_folder
+          cp build/imgui_app dist/imgui_folder/
+          chmod +x dist/imgui_folder/imgui_app
+          create-dmg --volname "ADBKing" --window-pos 200 120 --window-size 500 300 \
+            --icon-size 100 --icon "imgui_app" 200 150 \
+            "dist/ADBKing-${VERSION}-arm64.dmg" "dist/imgui_folder"
+          echo "ARTIFACT_PATH=dist/ADBKing-${VERSION}-arm64.dmg" >> $GITHUB_ENV
+          echo "ARTIFACT_NAME=ADBKing-${VERSION}-arm64.dmg" >> $GITHUB_ENV
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64
+          path: ${{ env.ARTIFACT_PATH }}
+
+  build-mac-x86:
+    name: macOS Intel
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '#go')
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          if [ ! -d /usr/local/Homebrew ]; then
+            arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          fi
+          arch -x86_64 brew install cmake sdl2 pkg-config create-dmg
+      - name: Build
+        env:
+          PKG_CONFIG_PATH: /usr/local/opt/sdl2/lib/pkgconfig
+        run: |
+          rm -rf build && mkdir build && cd build
+          arch -x86_64 cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+            -DCMAKE_PREFIX_PATH="/usr/local/opt/sdl2" -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0
+          arch -x86_64 make -j$(sysctl -n hw.ncpu)
+      - name: Package DMG
+        run: |
+          VERSION=1.0.1
+          mkdir -p dist/imgui_folder/ADBKing.app/Contents/{MacOS,Resources}
+          cp build/imgui_app.app/Contents/MacOS/imgui_app dist/imgui_folder/ADBKing.app/Contents/MacOS/ADBKing
+          chmod +x dist/imgui_folder/ADBKing.app/Contents/MacOS/ADBKing
+          cp desktop-icons/icon-mac.icns dist/imgui_folder/ADBKing.app/Contents/Resources/
+          cat << EOF > dist/imgui_folder/ADBKing.app/Contents/Info.plist
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleExecutable</key><string>ADBKing</string>
+  <key>CFBundleIdentifier</key><string>com.adbking.app</string>
+  <key>CFBundleName</key><string>ADBKing</string>
+  <key>CFBundleDisplayName</key><string>ADBKing</string>
+  <key>CFBundleVersion</key><string>${VERSION}</string>
+  <key>CFBundleShortVersionString</key><string>${VERSION}</string>
+  <key>CFBundleIconFile</key><string>icon-mac.icns</string>
+  <key>LSMinimumSystemVersion</key><string>12.0</string>
+  <key>NSHighResolutionCapable</key><true/>
+</dict>
+</plist>
+EOF
+          codesign --force --deep --options runtime --timestamp=none --sign - dist/imgui_folder/ADBKing.app
+          ln -sf /Applications dist/imgui_folder/Applications
+          arch -x86_64 create-dmg --volname "ADBKing" --window-pos 200 120 --window-size 600 400 \
+            --icon-size 100 --icon "ADBKing.app" 150 200 --icon "Applications" 350 200 \
+            --hide-extension "ADBKing.app" --app-drop-link 350 200 \
+            "dist/ADBKing-${VERSION}-x86_64.dmg" "dist/imgui_folder"
+          echo "ARTIFACT_PATH=dist/ADBKing-${VERSION}-x86_64.dmg" >> $GITHUB_ENV
+          echo "ARTIFACT_NAME=ADBKing-${VERSION}-x86_64.dmg" >> $GITHUB_ENV
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-x86_64
+          path: ${{ env.ARTIFACT_PATH }}
+
+  build-windows:
+    name: Windows
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '#go')
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install WiX Toolset
+        run: choco install wixtoolset -y
+      - name: Install SDL2 and CURL
+        run: |
+          git clone https://github.com/Microsoft/vcpkg.git
+          .\vcpkg\bootstrap-vcpkg.bat
+          .\vcpkg\vcpkg install sdl2:x64-windows-static curl:x64-windows-static
+          echo "VCPKG_ROOT=$env:GITHUB_WORKSPACE\vcpkg" >> $env:GITHUB_ENV
+          echo "CMAKE_TOOLCHAIN_FILE=$env:GITHUB_WORKSPACE\vcpkg\scripts\buildsystems\vcpkg.cmake" >> $env:GITHUB_ENV
+      - name: Build
+        run: |
+          mkdir build && cd build
+          cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_TOOLCHAIN_FILE="$env:CMAKE_TOOLCHAIN_FILE" `
+            -DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded" -DCMAKE_CXX_FLAGS="/MT" -DCMAKE_C_FLAGS="/MT"
+          cmake --build . --config Release
+          copy "..\imgui\misc\fonts\JetBrainsMono.ttf" "Release\JetBrainsMono.ttf"
+      - name: Package MSI
+        run: |
+          $date = Get-Date -Format 'yyyyMMdd-HHmm'
+          echo "VERSION_DATE=$date" >> $env:GITHUB_ENV
+          mkdir dist
+          copy desktop-icons\icon-windows.ico icon-windows.ico
+          $wxs = @"
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" Name="ADBKing" Language="1033" Version="1.0.1.0" Manufacturer="ADBKing" UpgradeCode="$(New-Guid)">
+    <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+    <Icon Id="icon.ico" SourceFile="icon-windows.ico"/>
+    <Property Id="ARPPRODUCTICON" Value="icon.ico"/>
+    <MediaTemplate EmbedCab="yes" />
+    <UIRef Id="WixUI_Minimal" />
+    <Feature Id="ProductFeature" Title="ADBKing" Level="1"><ComponentGroupRef Id="ProductComponents"/></Feature>
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder"><Directory Id="INSTALLFOLDER" Name="ADBKing"/></Directory>
+      <Directory Id="ProgramMenuFolder"><Directory Id="ApplicationProgramsFolder" Name="ADBKing"/></Directory>
+    </Directory>
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="MainExecutable" Guid="$(New-Guid)">
+        <File Id="imgui_app.exe" Name="imgui_app.exe" Source="build/Release/imgui_app.exe" KeyPath="yes"/>
+      </Component>
+      <Component Id="FontFiles" Guid="$(New-Guid)">
+        <File Id="JetBrainsMono.ttf" Name="JetBrainsMono.ttf" Source="build/Release/JetBrainsMono.ttf"/>
+      </Component>
+      <Component Id="StartMenuShortcut" Guid="$(New-Guid)">
+        <Shortcut Id="StartMenuShortcut" Directory="ApplicationProgramsFolder" Name="ADBKing"
+          Description="ADBKing" Target="[INSTALLFOLDER]imgui_app.exe" WorkingDirectory="INSTALLFOLDER"
+          Icon="icon.ico" IconIndex="0"/>
+        <RemoveFolder Id="RemoveShortcutDir" Directory="ApplicationProgramsFolder" On="uninstall"/>
+        <RegistryValue Root="HKCU" Key="Software\ADBKing" Name="shortcut" Type="integer" Value="1" KeyPath="yes"/>
+      </Component>
+    </DirectoryRef>
+    <ComponentGroup Id="ProductComponents">
+      <ComponentRef Id="MainExecutable"/><ComponentRef Id="FontFiles"/><ComponentRef Id="StartMenuShortcut"/>
+    </ComponentGroup>
+  </Product>
+</Wix>
+"@
+          $wxs | Out-File -FilePath "installer.wxs" -Encoding UTF8
+          candle.exe installer.wxs -out installer.wixobj
+          light.exe installer.wixobj -out imgui_app.msi -ext WixUIExtension
+          $msiName = "ADBKing-1.0.1-$date.msi"
+          copy imgui_app.msi "dist/$msiName"
+          echo "ARTIFACT_PATH=dist/$msiName" >> $env:GITHUB_ENV
+          echo "ARTIFACT_NAME=$msiName" >> $env:GITHUB_ENV
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: ${{ env.ARTIFACT_PATH }}
+
+  create-release:
+    needs: [build-mac-arm64, build-mac-x86, build-windows]
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '#go')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.1-${{ github.run_number }}
+          name: ADBKing v1.0.1 (${{ github.run_number }})
+          body: |
+            Automated release for commit ${{ github.sha }}
+          files: |
+            macos-arm64/*
+            macos-x86_64/*
+            windows/*
+          generate_release_notes: true
