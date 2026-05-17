@@ -42,8 +42,8 @@ jobs:
           echo "::group::Create DMG"
           VERSION=1.0.1
           mkdir -p dist/imgui_folder/ADBKing.app/Contents/{MacOS,Resources}
-          cp build/imgui_app.app/Contents/MacOS/imgui_app dist/imgui_folder/ADBKing.app/Contents/MacOS/ADBKing
-          chmod +x dist/imgui_folder/ADBKing.app/Contents/MacOS/ADBKing
+          cp build/imgui_app.app/Contents/MacOS/imgui_app dist/imgui_folder/ADBKing.app/Contents/MacOS/imgui_app
+          chmod +x dist/imgui_folder/ADBKing.app/Contents/MacOS/imgui_app
           cp Info.plist dist/imgui_folder/ADBKing.app/Contents/Info.plist
           cp desktop-icons/icon-mac.icns dist/imgui_folder/ADBKing.app/Contents/Resources/
           codesign --force --deep --options runtime --timestamp=none --sign - dist/imgui_folder/ADBKing.app
@@ -83,7 +83,7 @@ jobs:
           echo "[OK] vcpkg ready"
           echo "::endgroup::"
           echo "::group::Install packages"
-          .\vcpkg\vcpkg install sdl2:x64-windows-static curl:x64-windows-static
+          .\vcpkg\vcpkg install sdl2:x64-windows-static curl:x64-windows-static zlib:x64-windows-static
           echo "[OK] Packages installed"
           echo "VCPKG_ROOT=$env:GITHUB_WORKSPACE\vcpkg" >> $env:GITHUB_ENV
           echo "CMAKE_TOOLCHAIN_FILE=$env:GITHUB_WORKSPACE\vcpkg\scripts\buildsystems\vcpkg.cmake" >> $env:GITHUB_ENV
