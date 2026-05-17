@@ -1,0 +1,360 @@
+name: Windows Build and MSI
+
+on:
+  push:
+    branches: [ dev ]
+  workflow_dispatch:
+
+jobs:
+  build-msi:
+    runs-on: windows-latest
+    # Skip job if commit message is not "go" (unless manually triggered)
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'go')
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install WiX Toolset
+      run: |
+        choco install wixtoolset -y
+
+    - name: Install SDL2 and CURL development libraries
+      run: |
+        # Install vcpkg for package management
+        git clone https://github.com/Microsoft/vcpkg.git
+        .\vcpkg\bootstrap-vcpkg.bat
+        
+        # Install SDL2 and CURL with static linking using vcpkg
+        .\vcpkg\vcpkg install sdl2:x64-windows-static curl:x64-windows-static
+        
+        # Set environment variables for CMake
+        $vcpkgRoot = "$env:GITHUB_WORKSPACE\vcpkg"
+        $toolchainFile = "$vcpkgRoot\scripts\buildsystems\vcpkg.cmake"
+        
+        echo "VCPKG_ROOT=$vcpkgRoot" >> $env:GITHUB_ENV
+        echo "CMAKE_TOOLCHAIN_FILE=$toolchainFile" >> $env:GITHUB_ENV
+        
+        # Verify SDL2 and CURL installation
+        echo "SDL2 installed via vcpkg at:"
+        Get-ChildItem "vcpkg\installed\x64-windows-static" -Recurse | Where-Object { $_.Name -like "*sdl2*" }
+        
+        echo "CURL installed via vcpkg at:"
+        Get-ChildItem "vcpkg\installed\x64-windows-static" -Recurse | Where-Object { $_.Name -like "*curl*" }
+        
+        # List all installed packages
+        echo "All installed packages:"
+        .\vcpkg\vcpkg list
+        
+        # Verify toolchain file exists
+        echo "Toolchain file exists: $(Test-Path $toolchainFile)"
+        echo "VCPKG_ROOT: $vcpkgRoot"
+        echo "CMAKE_TOOLCHAIN_FILE: $toolchainFile"
+        
+        # Test vcpkg integration
+        echo "Testing vcpkg integration..."
+        .\vcpkg\vcpkg integrate install
+
+
+
+    - name: Set VERSION_DATE for MSI
+      run: |
+        $date = Get-Date -Format 'yyyyMMdd-HHmm'
+        echo "VERSION_DATE=$date" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+    - name: Build application
+      run: |
+        mkdir build
+        cd build
+        
+        # Debug environment variables
+        echo "Current environment variables:"
+        echo "VCPKG_ROOT: $env:VCPKG_ROOT"
+        echo "CMAKE_TOOLCHAIN_FILE: $env:CMAKE_TOOLCHAIN_FILE"
+        echo "Toolchain file exists: $(Test-Path $env:CMAKE_TOOLCHAIN_FILE)"
+        
+        # Ensure we're using absolute paths
+        $toolchainFile = (Resolve-Path $env:CMAKE_TOOLCHAIN_FILE).Path
+        echo "Resolved toolchain file: $toolchainFile"
+        
+        # Run CMake with verbose output and explicit toolchain
+        cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$toolchainFile" -DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded" -DCMAKE_CXX_FLAGS="/MT" -DCMAKE_C_FLAGS="/MT" -DCMAKE_PREFIX_PATH="$env:VCPKG_ROOT\installed\x64-windows-static" --debug-find
+        cmake --build . --config Release
+        echo "Build completed successfully"
+        dir Release
+        
+        # Copy font files to build directory for runtime access
+        echo "Copying font files to build directory..."
+        copy "..\imgui\misc\fonts\JetBrainsMono.ttf" "Release\JetBrainsMono.ttf" >nul 2>&1
+        if (Test-Path "Release\JetBrainsMono.ttf") {
+            echo "✅ JetBrains Mono font copied successfully"
+        } else {
+            echo "❌ Failed to copy JetBrains Mono font"
+        }
+        
+
+        
+        # Verify static runtime linking by checking file size and build info
+        echo "Verifying static runtime linking..."
+        $exePath = "Release\imgui_app.exe"
+        $fileSize = (Get-Item $exePath).Length
+        echo "Executable size: $([math]::Round($fileSize / 1MB, 2)) MB"
+        
+        # Check if the executable was built with static runtime by examining build flags
+        echo "Build configuration:"
+        echo "- CMAKE_MSVC_RUNTIME_LIBRARY: MultiThreaded (static)"
+        echo "- CMAKE_BUILD_TYPE: Release"
+        echo "- Target: x64"
+        echo "- Compiler flags: /MT (static runtime)"
+        
+        # Use dumpbin to verify static linking
+        echo "Checking runtime library linking..."
+        # Find dumpbin in Visual Studio installation
+        $dumpbinPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x64\dumpbin.exe"
+        if (Test-Path $dumpbinPath) {
+            $dumpbinOutput = & $dumpbinPath /directives $exePath 2>$null | Select-String "MSVCRT"
+            if ($dumpbinOutput) {
+                echo "⚠️  Found MSVCRT references - may not be fully static"
+                echo $dumpbinOutput
+            } else {
+                echo "✅ No MSVCRT references found - likely statically linked"
+            }
+        } else {
+            echo "⚠️  dumpbin not found at expected location, skipping runtime library verification"
+            echo "Expected path: $dumpbinPath"
+        }
+        
+        # Note: Static linking typically results in larger executable size
+        if ($fileSize -gt 500KB) {
+            echo "✅ Executable size suggests static linking (larger due to embedded runtime)"
+        } else {
+            echo "⚠️  Executable size seems small for static linking"
+        }
+        
+        echo "Static runtime linking configured via CMAKE_MSVC_RUNTIME_LIBRARY='MultiThreaded' and /MT flags"
+
+
+
+    - name: Create WiX source file
+      run: |
+        # Copy the Windows icon to the working directory for WiX
+        copy desktop-icons\icon-windows.ico icon-windows.ico
+
+
+
+        # Since we're using static SDL2, we don't need to bundle SDL2.dll
+        Write-Host "Using static SDL2 linking - no SDL2.dll needed"
+        $sdl2DllPath = $null
+
+        $upgradeCode = [guid]::NewGuid().ToString()
+        $mainExeGuid = [guid]::NewGuid().ToString()
+        $userRegistryGuid = [guid]::NewGuid().ToString()
+        $shortcutGuid = [guid]::NewGuid().ToString()
+        $fontFilesGuid = [guid]::NewGuid().ToString()
+        Write-Host "Generated UpgradeCode: $upgradeCode"
+        Write-Host "Generated MainExecutable GUID: $mainExeGuid"
+        Write-Host "Generated UserRegistry GUID: $userRegistryGuid"
+        Write-Host "Generated Shortcut GUID: $shortcutGuid"
+        Write-Host "Generated FontFiles GUID: $fontFilesGuid"
+
+        $wxs = @"
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+
+          <Product Id="*"
+                   Name="ADBKing"
+                   Language="1033"
+                   Version="1.0.1.0"
+                   Manufacturer="ADBKing Teams"
+                   UpgradeCode="$upgradeCode">
+
+            <Package InstallerVersion="200"
+                     Compressed="yes"
+                     InstallScope="perMachine" />
+
+            <!-- App Icon -->
+            <Icon Id="icon.ico" SourceFile="icon-windows.ico"/>
+            <Property Id="ARPPRODUCTICON" Value="icon.ico"/>
+
+            <!-- Upgrade handling -->
+            <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+
+            <!-- UI -->
+            <MediaTemplate EmbedCab="yes" />
+            <UIRef Id="WixUI_Minimal" />
+            <WixVariable Id="WixUILicenseRtf" Value="license.rtf" />
+
+            <!-- Features -->
+            <Feature Id="ProductFeature" Title="ADBKing" Level="1">
+              <ComponentGroupRef Id="ProductComponents"/>
+            </Feature>
+          </Product>
+
+          <!-- Directory Tree -->
+          <Fragment>
+            <Directory Id="TARGETDIR" Name="SourceDir">
+              <Directory Id="ProgramFilesFolder">
+                <Directory Id="INSTALLFOLDER" Name="ADBKing"/>
+              </Directory>
+              <Directory Id="ProgramMenuFolder">
+                <Directory Id="ApplicationProgramsFolder" Name="ADBKing"/>
+              </Directory>
+            </Directory>
+          </Fragment>
+
+          <!-- Components and Shortcuts placed in the right directories -->
+          <Fragment>
+            <!-- Files under INSTALLFOLDER -->
+            <DirectoryRef Id="INSTALLFOLDER">
+              <!-- Main Executable -->
+              <Component Id="MainExecutable" Guid="$mainExeGuid">
+                <File Id="imgui_app.exe"
+                      Name="imgui_app.exe"
+                      Source="build/Release/imgui_app.exe"
+                      KeyPath="yes"/>
+              </Component>
+
+              <!-- Font Files -->
+              <Component Id="FontFiles" Guid="$fontFilesGuid">
+                <File Id="JetBrainsMono.ttf"
+                      Name="JetBrainsMono.ttf"
+                      Source="build/Release/JetBrainsMono.ttf"/>
+              </Component>
+
+              <!-- Start Menu Shortcut -->
+              <Component Id="StartMenuShortcut" Guid="$shortcutGuid">
+                <Shortcut Id="StartMenuShortcut"
+                          Directory="ApplicationProgramsFolder"
+                          Name="ADBKing"
+                          Description="ADBKing Application"
+                          Target="[INSTALLFOLDER]imgui_app.exe"
+                          WorkingDirectory="INSTALLFOLDER"
+                          Icon="icon.ico"
+                          IconIndex="0"/>
+                <RemoveFolder Id="RemoveShortcutDir"
+                              Directory="ApplicationProgramsFolder"
+                              On="uninstall"/>
+                <RegistryValue Root="HKCU" 
+                               Key="Software\ADBKing" 
+                               Name="shortcut" 
+                               Type="integer" 
+                               Value="1" 
+                               KeyPath="yes"/>
+              </Component>
+
+              <!-- Per-user registry key -->
+              <Component Id="UserRegistry" Guid="$userRegistryGuid">
+                <RegistryValue Root="HKCU"
+                               Key="Software\ADBKing"
+                               Name="installed"
+                               Type="integer"
+                               Value="1"
+                               KeyPath="yes"/>
+              </Component>
+            </DirectoryRef>
+
+            <!-- Group all components -->
+            <ComponentGroup Id="ProductComponents">
+              <ComponentRef Id="MainExecutable"/>
+              <ComponentRef Id="FontFiles"/>
+              <ComponentRef Id="StartMenuShortcut"/>
+              <ComponentRef Id="UserRegistry"/>
+            </ComponentGroup>
+          </Fragment>
+
+        </Wix>
+        "@
+
+        $wxs | Out-File -FilePath "installer.wxs" -Encoding UTF8
+
+    - name: Create license file
+      run: |
+        @"
+        This software is provided as-is without any warranty.
+        Use at your own risk.
+        "@ | Out-File -FilePath "license.rtf" -Encoding UTF8
+
+    - name: Build MSI installer
+      run: |
+        candle.exe installer.wxs -out installer.wixobj
+        light.exe installer.wixobj -out imgui_app.msi -ext WixUIExtension
+        
+        # Verify MSI was created successfully
+        if (Test-Path "imgui_app.msi") {
+            Write-Host "✅ MSI file created successfully"
+            $msiSize = (Get-Item "imgui_app.msi").Length
+            Write-Host "MSI size: $([math]::Round($msiSize / 1MB, 2)) MB"
+        } else {
+            Write-Host "❌ MSI file creation failed!"
+            exit 1
+        }
+
+    - name: Create distribution folder
+      run: |
+        mkdir dist
+        $msiName = "ADBKing-$env:VERSION_DATE.msi"
+        copy imgui_app.msi "dist/$msiName"
+        copy build\Release\imgui_app.exe dist\
+
+    - name: Print MSI path and info
+      run: |
+        $msiName = "ADBKing-$env:VERSION_DATE.msi"
+        echo "✅ MSI successfully created:"
+        echo "${{ github.workspace }}\dist\$msiName"
+        echo "📦 Size:"
+        $msiSize = (Get-ChildItem "dist\$msiName").Length
+        if ($msiSize -gt 1MB) {
+            Write-Host ([math]::Round($msiSize / 1MB, 2)) "MB"
+        } else {
+            Write-Host ([math]::Round($msiSize / 1KB, 2)) "KB"
+        }
+        echo "📦 Binary architecture:"
+        $fs = [System.IO.File]::OpenRead("dist/imgui_app.exe")
+        $fs.Seek(0x3C, [System.IO.SeekOrigin]::Begin) | Out-Null
+        $peOffset = New-Object byte[] 4
+        $fs.Read($peOffset, 0, 4) | Out-Null
+        $peHeader = [BitConverter]::ToInt32($peOffset, 0)
+        $fs.Seek($peHeader + 4, [System.IO.SeekOrigin]::Begin) | Out-Null
+        $machine = New-Object byte[] 2
+        $fs.Read($machine, 0, 2) | Out-Null
+        $fs.Close()
+        $arch = switch ([BitConverter]::ToUInt16($machine, 0)) {
+            0x014c { "x86" }
+            0x8664 { "x64" }
+            0x01c0 { "ARM" }
+            0x01c4 { "ARMv7" }
+            0xaa64 { "ARM64" }
+            default { "Unknown" }
+        }
+        Write-Host "Machine: $arch"
+        echo "📦 MSI contents:"
+        Get-ChildItem "dist\" -Recurse | ForEach-Object { Write-Host $_.Name }
+
+    - name: Copy MSI to private repo WinM folder and push
+      env:
+        GIT_TOKEN: ${{ secrets.PRIVATE_REPO_PAT }}
+      run: |
+        git config --global user.email "github-actions@github.com"
+        git config --global user.name "GitHub Actions"
+        git clone "https://$env:GIT_TOKEN@github.com/rajumark/ADBKing.git"
+        
+        # Delete entire WinM folder and recreate it
+        Write-Host "Deleting entire WinM folder..."
+        if (Test-Path ADBKing/WinM) {
+            Remove-Item -Path ADBKing/WinM -Recurse -Force
+            Write-Host "WinM folder deleted successfully"
+        }
+        
+        # Recreate WinM folder
+        New-Item -Path ADBKing/WinM -ItemType Directory -Force
+        Write-Host "WinM folder recreated"
+        
+        $msiName = "ADBKing-$env:VERSION_DATE.msi"
+        Copy-Item dist/$msiName ADBKing/WinM/$msiName
+        Write-Host "New MSI file copied: $msiName"
+        
+        cd ADBKing
+        git add WinM/
+        git commit -m "Update WinM folder with latest $msiName (recreated WinM folder)"
+        git push origin main
+
