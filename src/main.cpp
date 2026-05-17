@@ -35,21 +35,21 @@ static std::string ConfigPath() {
     return home ? std::string(home) + "/.seaweed_size" : "";
 }
 
-static void SaveWindowSize(int w, int h) {
+static void SaveWindowSize(int w, int h, int x, int y) {
     std::string path = ConfigPath();
     if (path.empty()) return;
     FILE* f = fopen(path.c_str(), "w");
-    if (f) { fprintf(f, "%d\n%d", w, h); fclose(f); }
+    if (f) { fprintf(f, "%d\n%d\n%d\n%d", w, h, x, y); fclose(f); }
 }
 
-static bool LoadWindowSize(int& w, int& h) {
+static bool LoadWindowSize(int& w, int& h, int& x, int& y) {
     std::string path = ConfigPath();
     if (path.empty()) return false;
     FILE* f = fopen(path.c_str(), "r");
     if (!f) return false;
-    int r = fscanf(f, "%d\n%d", &w, &h);
+    int r = fscanf(f, "%d\n%d\n%d\n%d", &w, &h, &x, &y);
     fclose(f);
-    return r == 2 && w > 0 && h > 0;
+    return r == 4 && w > 0 && h > 0;
 }
 
 #ifdef _WIN32
@@ -83,9 +83,10 @@ static std::string ExecCmd(const char* cmd) {
 }
 
 static void RestartApp(int argc, char* argv[], SDL_Window* window, SDL_GLContext gl_context) {
-    int w, h;
+    int w, h, x, y;
     SDL_GetWindowSize(window, &w, &h);
-    SaveWindowSize(w, h);
+    SDL_GetWindowPosition(window, &x, &y);
+    SaveWindowSize(w, h, x, y);
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
@@ -130,11 +131,11 @@ int main(int argc, char* argv[]) {
         SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
         SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
-        int winW = 1280, winH = 720;
-        LoadWindowSize(winW, winH);
+        int winW = 1280, winH = 720, winX = SDL_WINDOWPOS_CENTERED, winY = SDL_WINDOWPOS_CENTERED;
+        LoadWindowSize(winW, winH, winX, winY);
 
         SDL_Window* window = SDL_CreateWindow("ADBKing", 
-            SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
+            winX, winY,
             winW, winH, 
             SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN);
         
@@ -319,9 +320,10 @@ int main(int argc, char* argv[]) {
             SDL_GL_SwapWindow(window);
         }
 
-        int curW, curH;
+        int curW, curH, curX, curY;
         SDL_GetWindowSize(window, &curW, &curH);
-        SaveWindowSize(curW, curH);
+        SDL_GetWindowPosition(window, &curX, &curY);
+        SaveWindowSize(curW, curH, curX, curY);
 
         ImGui_ImplOpenGL3_Shutdown();
         ImGui_ImplSDL2_Shutdown();
