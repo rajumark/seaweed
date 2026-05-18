@@ -139,6 +139,13 @@ static void DrawMenuBar() {
                         if (panel.show) *panel.show = !*panel.show;
             ImGui::EndMenu();
         }
+        if (ImGui::BeginMenu("Data")) {
+            for (auto& panel : PanelRegistry::Get().GetAll())
+                if (panel.category == "Data")
+                    if (ImGui::MenuItem(panel.title.c_str(), nullptr, panel.show ? *panel.show : false))
+                        if (panel.show) *panel.show = !*panel.show;
+            ImGui::EndMenu();
+        }
         ImGui::EndMenuBar();
     }
 }
