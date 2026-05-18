@@ -21,6 +21,12 @@ namespace GlobalConfig {
     // Function to get the ADB path
     std::string GetADBPath();
     
+    // Build a shell-quoted ADB command from arguments.
+    // Returns: "<quoted_adb_path> <args>"
+    // This is the single source of truth for ADB command construction,
+    // ensuring paths with spaces are properly handled everywhere.
+    std::string BuildAdbCommand(const std::string& args);
+    
     // Function to initialize the ADB path (called during setup)
     void InitializeADBPath();
     

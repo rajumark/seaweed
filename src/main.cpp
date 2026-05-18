@@ -338,7 +338,7 @@ int main(int argc, char* argv[]) {
                     ImGui::InputText("##device", buf, sizeof(buf), ImGuiInputTextFlags_ReadOnly);
 
                     ImGui::Text("ADB Version"); ImGui::SameLine(120);
-                    std::string adbVerStr = ExecCmd((curAdbPath + " version").c_str());
+                    std::string adbVerStr = ExecCmd(GlobalConfig::BuildAdbCommand("version").c_str());
                     if (adbVerStr.empty()) adbVerStr = "Not found";
                     ImGui::InputTextMultiline("##adbver", &adbVerStr[0], adbVerStr.size() + 1,
                         ImVec2(-1, -1), ImGuiInputTextFlags_ReadOnly);

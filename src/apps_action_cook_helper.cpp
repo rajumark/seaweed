@@ -38,7 +38,7 @@ std::string AppsActionCookHelper::ExecuteADBCommand(const std::string& command) 
         return "";
     }
     
-    std::string fullCommand = adbPath + " " + command;
+    std::string fullCommand = GlobalConfig::BuildAdbCommand(command);
     std::string result;
     
 #ifdef _WIN32

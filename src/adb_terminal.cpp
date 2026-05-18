@@ -37,10 +37,10 @@ std::string ExecuteADBCommandWithStreaming(const std::string& command) {
     std::string fullCommand;
     if (command.substr(0, 3) == "adb") {
         // User typed full command like "adb devices", so just use the command as-is
-        fullCommand = adbPath + " " + command.substr(4); // Remove "adb " and add our path
+        fullCommand = GlobalConfig::BuildAdbCommand(command.substr(4));
     } else {
         // User typed just the command like "devices", so prepend our ADB path
-        fullCommand = adbPath + " " + command;
+        fullCommand = GlobalConfig::BuildAdbCommand(command);
     }
     
     std::string result;
@@ -108,9 +108,9 @@ void StartStreamingCommand(const std::string& command) {
         // Construct the full command
         std::string fullCommand;
         if (command.substr(0, 3) == "adb") {
-            fullCommand = adbPath + " " + command.substr(4);
+            fullCommand = GlobalConfig::BuildAdbCommand(command.substr(4));
         } else {
-            fullCommand = adbPath + " " + command;
+            fullCommand = GlobalConfig::BuildAdbCommand(command);
         }
         
         std::string redirectCommand = fullCommand + " 2>&1";

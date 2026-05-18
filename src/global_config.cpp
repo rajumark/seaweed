@@ -22,6 +22,12 @@ namespace GlobalConfig {
         return g_adbPath;
     }
     
+    std::string BuildAdbCommand(const std::string& args) {
+        if (g_adbPath.empty()) return "";
+        // Quote the path so shells handle spaces (e.g., "Application Support") correctly.
+        return "\"" + g_adbPath + "\" " + args;
+    }
+    
     void InitializeADBPath() {
         // Use dynamic path from setup.cpp
         std::string adbKingPath = GetADBKingPath();
