@@ -228,6 +228,7 @@ int main(int argc, char* argv[]) {
         }
 
         RegisterAllPanels();
+        PanelRegistry::Get().LoadState(GetADBKingPath() + "/windows_state.txt");
         RegisterCommands(argc, argv, window, gl_context);
         RegisterSpotlightItems();
 
@@ -304,6 +305,7 @@ int main(int argc, char* argv[]) {
             SDL_GL_SwapWindow(window);
         }
 
+        PanelRegistry::Get().SaveState(GetADBKingPath() + "/windows_state.txt");
         ImGui_ImplOpenGL3_Shutdown();
         ImGui_ImplSDL2_Shutdown();
         ImGui::DestroyContext();

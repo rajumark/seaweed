@@ -25,6 +25,9 @@ public:
     bool AnyOpen() const;
     void DrawAll();
 
+    void SaveState(const std::string& filepath) const;
+    void LoadState(const std::string& filepath);
+
 private:
     PanelRegistry() = default;
     std::vector<Panel> m_panels;
