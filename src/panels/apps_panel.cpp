@@ -1,6 +1,7 @@
 #include "apps_panel.h"
 #include "core/registry/panel_registry.h"
 #include "apps_cook_helper.h"
+#include "global_config.h"
 #include "imgui.h"
 #include <string>
 #include <chrono>
@@ -19,18 +20,25 @@ static void DrawAppsPanel() {
         auto now = std::chrono::steady_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - s_lastRefresh).count();
 
-        if (elapsed >= 4000 && !isLoading) {
-            AppsCookHelper::LoadPackagesListAsync();
-            s_lastRefresh = now;
-            isLoading = true;
-        }
-
         if (s_wasLoading && !isLoading) {
             std::vector<std::string> fresh = AppsCookHelper::GetPackages();
             if (fresh != s_displayed)
                 s_displayed = std::move(fresh);
         }
         s_wasLoading = isLoading;
+
+        if (s_displayed.empty() && !isLoading && !GlobalConfig::GetSelectedDeviceId().empty()) {
+            AppsCookHelper::LoadPackagesListAsync();
+            s_wasLoading = true;
+            isLoading = true;
+        }
+
+        if (elapsed >= 4000 && !isLoading) {
+            AppsCookHelper::LoadPackagesListAsync();
+            s_lastRefresh = now;
+            s_wasLoading = true;
+            isLoading = true;
+        }
 
         ImGui::Separator();
 
