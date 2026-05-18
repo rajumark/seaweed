@@ -7,7 +7,7 @@ then you should stop thinking in terms of:
 
 * “screen files”
 * “buttons”
-* “manual menus”
+* “manual menus” 
 
 …and start thinking like:
 
