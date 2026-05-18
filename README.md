@@ -149,7 +149,7 @@ The generated MSI installer includes:
 - **Registry entries** for uninstall tracking
 - **Automatic installation** to Program Files
 
-## Platform Tools Downloads
+## Platform Tools Downloads 
 
 Download platform tools for different operating systems:
 
