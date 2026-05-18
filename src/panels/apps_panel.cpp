@@ -1,72 +1,76 @@
 #include "apps_panel.h"
 #include "core/registry/panel_registry.h"
-#include "apps_cook_helper.h"
-#include "global_config.h"
+#include "core/ui/async_data_panel.h"
+#include "apps_action_cook_helper.h"
 #include "imgui.h"
 #include <string>
-#include <chrono>
 #include <vector>
 
-static bool s_show = false;
-static std::vector<std::string> s_displayed;
-static std::chrono::steady_clock::time_point s_lastRefresh;
-static bool s_wasLoading = false;
+class AppsPanel : public AsyncDataPanel {
+public:
+    AppsPanel()
+        : AsyncDataPanel("Apps", "list_packages", 4000)
+    {
+    }
+
+protected:
+    void RenderContent() override {
+        ImGui::Text("Total: %zu", Displayed().size());
+        ImGui::Separator();
+        ImGui::BeginChild("PackagesList", ImVec2(0, 0), true, ImGuiWindowFlags_HorizontalScrollbar);
+        for (const auto& pkg : Displayed()) {
+            bool selected = (m_selectedPkg == pkg);
+            ImGui::Selectable(pkg.c_str(), &selected, ImGuiSelectableFlags_None);
+            if (ImGui::BeginPopupContextItem())
+                HandleContextMenu(pkg);
+        }
+        ImGui::EndChild();
+    }
+
+private:
+    void HandleContextMenu(const std::string& pkg) {
+        if (ImGui::MenuItem("Open"))
+            AppsActionCookHelper::StartAppAsync(pkg);
+        if (ImGui::MenuItem("Force Stop"))
+            AppsActionCookHelper::ForceStopAppAsync(pkg);
+        if (ImGui::MenuItem("Restart"))
+            AppsActionCookHelper::RestartAppAsync(pkg);
+        ImGui::Separator();
+        if (ImGui::MenuItem("Uninstall"))
+            AppsActionCookHelper::UninstallAppAsync(pkg);
+        if (ImGui::MenuItem("Clear Data"))
+            AppsActionCookHelper::ClearAppDataAsync(pkg);
+        ImGui::Separator();
+        if (ImGui::MenuItem("Enable"))
+            AppsActionCookHelper::EnableAppAsync(pkg);
+        if (ImGui::MenuItem("Disable"))
+            AppsActionCookHelper::DisableAppAsync(pkg);
+        ImGui::Separator();
+        if (ImGui::MenuItem("Open App Info"))
+            AppsActionCookHelper::OpenAppInfoAsync(pkg);
+        if (ImGui::MenuItem("Copy Package Name"))
+            AppsActionCookHelper::CopyPackageName(pkg);
+        ImGui::EndPopup();
+    }
+
+    std::string m_selectedPkg;
+};
+
+static AppsPanel* s_panel = nullptr;
 
 static void DrawAppsPanel() {
-    if (!s_show) return;
-
-    if (ImGui::Begin("Apps", &s_show)) {
-        bool isLoading = AppsCookHelper::IsLoading();
-        auto now = std::chrono::steady_clock::now();
-        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - s_lastRefresh).count();
-
-        if (s_wasLoading && !isLoading) {
-            std::vector<std::string> fresh = AppsCookHelper::GetPackages();
-            if (fresh != s_displayed)
-                s_displayed = std::move(fresh);
-        }
-        s_wasLoading = isLoading;
-
-        if (s_displayed.empty() && !isLoading && !GlobalConfig::GetSelectedDeviceId().empty()) {
-            AppsCookHelper::LoadPackagesListAsync();
-            s_wasLoading = true;
-            isLoading = true;
-        }
-
-        if (elapsed >= 4000 && !isLoading) {
-            AppsCookHelper::LoadPackagesListAsync();
-            s_lastRefresh = now;
-            s_wasLoading = true;
-            isLoading = true;
-        }
-
-        ImGui::Separator();
-
-        if (s_displayed.empty() && !isLoading) {
-            const std::string& err = AppsCookHelper::GetLastError();
-            if (!err.empty())
-                ImGui::TextColored(ImVec4(1, 0, 0, 1), "%s", err.c_str());
-            else
-                ImGui::TextDisabled("No packages found. Select a device and press Refresh.");
-        } else {
-            ImGui::Text("Total: %zu", s_displayed.size());
-            ImGui::Separator();
-            ImGui::BeginChild("PackagesList", ImVec2(0, 0), true, ImGuiWindowFlags_HorizontalScrollbar);
-            for (const auto& pkg : s_displayed)
-                ImGui::Text("%s", pkg.c_str());
-            ImGui::EndChild();
-        }
-    }
-    ImGui::End();
+    if (!s_panel) return;
+    s_panel->Draw();
 }
 
 void RegisterAppsPanel() {
+    s_panel = new AppsPanel();
     PanelRegistry::Get().Register({
         "apps",
         "Apps",
         "Data",
         DrawAppsPanel,
-        &s_show,
+        s_panel->GetShowPtr(),
         {"packages", "applications", "installed"}
     });
 }

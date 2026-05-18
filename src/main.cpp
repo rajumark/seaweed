@@ -14,6 +14,8 @@
 #include "setup.h"
 #include "core/registry/panel_registry.h"
 #include "core/registry/command_registry.h"
+#include "core/capability/register_capabilities.h"
+#include "core/capability/capability_service.h"
 #include "panels/register_all_panels.h"
 #include <iostream>
 #include <stdexcept>
@@ -228,6 +230,7 @@ int main(int argc, char* argv[]) {
         }
 
         RegisterAllPanels();
+        RegisterAllCapabilities();
         PanelRegistry::Get().LoadState(GetADBKingPath() + "/windows_state.txt");
         RegisterCommands(argc, argv, window, gl_context);
         RegisterSpotlightItems();

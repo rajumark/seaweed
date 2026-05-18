@@ -23,6 +23,8 @@ file(GLOB IMGUI_SRC
 file(GLOB APP_SRC
     src/*.cpp
     src/core/registry/*.cpp
+    src/core/capability/*.cpp
+    src/core/ui/*.cpp
     src/panels/*.cpp
 )
 
