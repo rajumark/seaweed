@@ -9,6 +9,8 @@
 #include "device_manager.h"
 #include "global_config.h"
 #include "emulator_manager.h"
+#include "apps_cook_helper.h"
+#include "apps_action_cook_helper.h"
 #include "setup.h"
 #include "core/registry/panel_registry.h"
 #include "core/registry/command_registry.h"
@@ -306,6 +308,8 @@ int main(int argc, char* argv[]) {
         ImGui_ImplSDL2_Shutdown();
         ImGui::DestroyContext();
         SDL_GL_DeleteContext(gl_context);
+        AppsCookHelper::Cleanup();
+        AppsActionCookHelper::ShutdownBackgroundTaskManager();
         GlobalConfig::StopDeviceMonitoring();
         SDL_DestroyWindow(window);
         SDL_Quit();
