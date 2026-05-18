@@ -22,6 +22,8 @@ file(GLOB IMGUI_SRC
 # App source files
 file(GLOB APP_SRC
     src/*.cpp
+    src/core/registry/*.cpp
+    src/panels/*.cpp
 )
 
 # Add executable
