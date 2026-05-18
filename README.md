@@ -1,4 +1,4 @@
-## Build and Run the App
+## Build and Run the App 
  
 ### Method 1: Using CMake (Recommended)
 
