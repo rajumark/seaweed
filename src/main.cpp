@@ -30,7 +30,6 @@
 #endif
 
 struct WindowState {
-    int w, h, x, y;
     bool showAbout, showTheme, showDemo;
     bool showDeviceList, showEmulator, showWireless;
 };
@@ -51,8 +50,8 @@ static void SaveState(const WindowState& s) {
     if (path.empty()) return;
     FILE* f = fopen(path.c_str(), "w");
     if (f) {
-        fprintf(f, "%d\n%d\n%d\n%d\n%d\n%d\n%d\n%d\n%d\n%d",
-            s.w, s.h, s.x, s.y, (int)s.showAbout, (int)s.showTheme, (int)s.showDemo,
+        fprintf(f, "%d\n%d\n%d\n%d\n%d\n%d",
+            (int)s.showAbout, (int)s.showTheme, (int)s.showDemo,
             (int)s.showDeviceList, (int)s.showEmulator, (int)s.showWireless);
         fclose(f);
     }
@@ -64,12 +63,11 @@ static bool LoadState(WindowState& s) {
     FILE* f = fopen(path.c_str(), "r");
     if (!f) return false;
     int a, t, d, dl, e, wl;
-    int r = fscanf(f, "%d\n%d\n%d\n%d\n%d\n%d\n%d\n%d\n%d\n%d",
-        &s.w, &s.h, &s.x, &s.y, &a, &t, &d, &dl, &e, &wl);
+    int r = fscanf(f, "%d\n%d\n%d\n%d\n%d\n%d", &a, &t, &d, &dl, &e, &wl);
     fclose(f);
-    if (r >= 7 && s.w > 0 && s.h > 0) {
+    if (r >= 6) {
         s.showAbout = a; s.showTheme = t; s.showDemo = d;
-        if (r == 10) { s.showDeviceList = dl; s.showEmulator = e; s.showWireless = wl; }
+        s.showDeviceList = dl; s.showEmulator = e; s.showWireless = wl;
         return true;
     }
     return false;
@@ -105,12 +103,8 @@ static std::string ExecCmd(const char* cmd) {
     return result;
 }
 
-static void RestartApp(int argc, char* argv[], SDL_Window* window, SDL_GLContext gl_context,
-    WindowState& state)
+static void RestartApp(int argc, char* argv[], SDL_Window* window, SDL_GLContext gl_context)
 {
-    SDL_GetWindowSize(window, &state.w, &state.h);
-    SDL_GetWindowPosition(window, &state.x, &state.y);
-    SaveState(state);
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
@@ -155,13 +149,10 @@ int main(int argc, char* argv[]) {
         SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
         SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
-        WindowState st = {1280, 720, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 0, 0, 0, 0, 0, 0};
-        LoadState(st);
-
         SDL_Window* window = SDL_CreateWindow("ADBKing", 
-            st.x, st.y,
-            st.w, st.h, 
-            SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN);
+            SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+            1280, 720, 
+            SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI);
         
         if (!window) {
             std::cerr << "Window creation failed: " << SDL_GetError() << std::endl;
@@ -182,7 +173,10 @@ int main(int argc, char* argv[]) {
 
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
-        ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+        ImGuiIO& io = ImGui::GetIO();
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+        io.ConfigWindowsMoveFromTitleBarOnly = true;
 
         if (!ImGui_ImplSDL2_InitForOpenGL(window, gl_context)) {
             std::cerr << "ImGui SDL2 implementation initialization failed" << std::endl;
@@ -217,6 +211,9 @@ int main(int argc, char* argv[]) {
         );
         if (osVersion.empty()) osVersion = "Unknown";
 
+        WindowState st = {0, 0, 0, 0, 0, 0};
+        LoadState(st);
+
         bool setupComplete = PlatformToolsExist();
         if (setupComplete) {
             GlobalConfig::InitializeADBPath();
@@ -247,260 +244,283 @@ int main(int argc, char* argv[]) {
                     EmulatorManager::GetInstance().SetAdbPath(adbPath);
                 }
             } else {
-                if (ImGui::BeginMainMenuBar())
+                ImGuiViewport* viewport = ImGui::GetMainViewport();
+                ImGui::SetNextWindowPos(viewport->WorkPos);
+                ImGui::SetNextWindowSize(viewport->WorkSize);
+                ImGui::SetNextWindowViewport(viewport->ID);
+
+                ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+                ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+
+                ImGuiWindowFlags dockspace_flags =
+                    ImGuiWindowFlags_NoDocking |
+                    ImGuiWindowFlags_NoTitleBar |
+                    ImGuiWindowFlags_NoCollapse |
+                    ImGuiWindowFlags_NoResize |
+                    ImGuiWindowFlags_NoMove |
+                    ImGuiWindowFlags_NoBringToFrontOnFocus |
+                    ImGuiWindowFlags_NoNavFocus;
+
+                ImGui::Begin("MainDockSpace", nullptr, dockspace_flags | ImGuiWindowFlags_MenuBar);
+                ImGui::PopStyleVar(2);
+
+                if (ImGui::BeginMenuBar())
                 {
-                if (ImGui::BeginMenu("Seaweed"))
-                {
-                    if (ImGui::MenuItem("About", nullptr, &st.showAbout)) {}
-                    if (ImGui::MenuItem("Theme", nullptr, &st.showTheme)) {}
-                    if (ImGui::MenuItem("Restart")) { RestartApp(argc, argv, window, gl_context, st); }
-                    if (ImGui::MenuItem("Close App")) { running = false; }
-                    if (ImGui::MenuItem("Close All")) {
-                        st.showAbout = false;
-                        st.showTheme = false;
-                        st.showDemo = false;
-                        st.showDeviceList = false;
-                        st.showEmulator = false;
-                        st.showWireless = false;
+                    if (ImGui::BeginMenu("Seaweed"))
+                    {
+                        if (ImGui::MenuItem("About", nullptr, &st.showAbout)) {}
+                        if (ImGui::MenuItem("Theme", nullptr, &st.showTheme)) {}
+                        if (ImGui::MenuItem("Restart")) { RestartApp(argc, argv, window, gl_context); }
+                        if (ImGui::MenuItem("Close App")) { running = false; }
+                        if (ImGui::MenuItem("Close All")) {
+                            st.showAbout = false;
+                            st.showTheme = false;
+                            st.showDemo = false;
+                            st.showDeviceList = false;
+                            st.showEmulator = false;
+                            st.showWireless = false;
+                        }
+                        ImGui::Separator();
+                        if (ImGui::MenuItem("Demo Window", nullptr, &st.showDemo)) {}
+                        ImGui::EndMenu();
                     }
-                    ImGui::Separator();
-                    if (ImGui::MenuItem("Demo Window", nullptr, &st.showDemo)) {}
-                    ImGui::EndMenu();
+                    if (ImGui::BeginMenu("Devices"))
+                    {
+                        if (ImGui::MenuItem("Device List", nullptr, &st.showDeviceList)) {}
+                        if (ImGui::MenuItem("Emulator", nullptr, &st.showEmulator)) {}
+                        if (ImGui::MenuItem("Wireless", nullptr, &st.showWireless)) {}
+                        ImGui::EndMenu();
+                    }
+                    ImGui::EndMenuBar();
                 }
-                if (ImGui::BeginMenu("Devices"))
-                {
-                    if (ImGui::MenuItem("Device List", nullptr, &st.showDeviceList)) {}
-                    if (ImGui::MenuItem("Emulator", nullptr, &st.showEmulator)) {}
-                    if (ImGui::MenuItem("Wireless", nullptr, &st.showWireless)) {}
-                    ImGui::EndMenu();
-                }
-                ImGui::EndMainMenuBar();
-            }
 
-            {
-                static bool registered = false;
-                if (!registered) {
-                    RegisterSpotlightItem({"About", "Seaweed", [&]() { st.showAbout = !st.showAbout; }, [&]() { return st.showAbout; }});
-                    RegisterSpotlightItem({"Theme", "Seaweed", [&]() { st.showTheme = !st.showTheme; }, [&]() { return st.showTheme; }, {"dark", "light", "colors", "appearance", "style"}});
-                    RegisterSpotlightItem({"Restart", "Seaweed", [&]() { RestartApp(argc, argv, window, gl_context, st); }, nullptr});
-                    RegisterSpotlightItem({"Close App", "Seaweed", [&]() { running = false; }, nullptr});
-                    RegisterSpotlightItem({"Close All", "Seaweed", [&]() {
-                        st.showAbout = false;
-                        st.showTheme = false;
-                        st.showDemo = false;
-                        st.showDeviceList = false;
-                        st.showEmulator = false;
-                        st.showWireless = false;
-                    }, [&]() {
-                        return st.showAbout || st.showTheme || st.showDemo ||
-                               st.showDeviceList || st.showEmulator || st.showWireless;
-                    }, {"clean", "hide", "windows"}, false});
-                    RegisterSpotlightItem({"Demo Window", "Seaweed", [&]() { st.showDemo = !st.showDemo; }, [&]() { return st.showDemo; }, {"debug", "test", "example"}});
-                    RegisterSpotlightItem({"Device List", "Devices", [&]() { st.showDeviceList = !st.showDeviceList; }, [&]() { return st.showDeviceList; }});
-                    RegisterSpotlightItem({"Emulator", "Devices", [&]() { st.showEmulator = !st.showEmulator; }, [&]() { return st.showEmulator; }});
-                    RegisterSpotlightItem({"Wireless", "Devices", [&]() { st.showWireless = !st.showWireless; }, [&]() { return st.showWireless; }});
-                    registered = true;
-                }
-            }
-
-            RenderSpotlight();
-
-            if (st.showAbout) {
-                if (ImGui::Begin("About Seaweed", &st.showAbout)) {
-                    char buf[1024];
-
-                    ImGui::Text("Name"); ImGui::SameLine(120);
-                    snprintf(buf, sizeof(buf), "Seaweed");
-                    ImGui::InputText("##name", buf, sizeof(buf), ImGuiInputTextFlags_ReadOnly);
-
-                    ImGui::Text("Version"); ImGui::SameLine(120);
-                    snprintf(buf, sizeof(buf), "1.0.0");
-                    ImGui::InputText("##version", buf, sizeof(buf), ImGuiInputTextFlags_ReadOnly);
-
-                    ImGui::Text("Developer"); ImGui::SameLine(120);
-                    snprintf(buf, sizeof(buf), "Raju Shingadiya");
-                    ImGui::InputText("##developer", buf, sizeof(buf), ImGuiInputTextFlags_ReadOnly);
-
-                    ImGui::Separator();
-
-                    ImGui::Text("OS"); ImGui::SameLine(120);
-                    snprintf(buf, sizeof(buf), "%s", osVersion.c_str());
-                    ImGui::InputText("##os", buf, sizeof(buf), ImGuiInputTextFlags_ReadOnly);
-
-                    ImGui::Text("ADB Path"); ImGui::SameLine(120);
-                    std::string curAdbPath = GlobalConfig::GetADBPath();
-                    snprintf(buf, sizeof(buf), "%s", curAdbPath.empty() ? "Not found" : curAdbPath.c_str());
-                    ImGui::InputText("##adbpath", buf, sizeof(buf), ImGuiInputTextFlags_ReadOnly);
-
-                    ImGui::Text("Device"); ImGui::SameLine(120);
-                    std::string selectedDevice = GlobalConfig::GetSelectedDeviceId();
-                    snprintf(buf, sizeof(buf), "%s", selectedDevice.empty() ? "None" : selectedDevice.c_str());
-                    ImGui::InputText("##device", buf, sizeof(buf), ImGuiInputTextFlags_ReadOnly);
-
-                    ImGui::Text("ADB Version"); ImGui::SameLine(120);
-                    std::string adbVerStr = ExecCmd(GlobalConfig::BuildAdbCommand("version").c_str());
-                    if (adbVerStr.empty()) adbVerStr = "Not found";
-                    ImGui::InputTextMultiline("##adbver", &adbVerStr[0], adbVerStr.size() + 1,
-                        ImVec2(-1, -1), ImGuiInputTextFlags_ReadOnly);
-                }
+                ImGuiID dockspace_id = ImGui::GetID("MainDockSpace");
+                ImGui::DockSpace(dockspace_id, ImVec2(0, 0));
                 ImGui::End();
-            }
 
-            if (st.showTheme) {
-                if (ImGui::Begin("Theme", &st.showTheme)) {
-                    bool wasDark = isDarkTheme;
-                    ImGui::Text("Current: %s", isDarkTheme ? "Dark" : "Light");
-                    ImGui::Separator();
-                    if (ImGui::RadioButton("Dark Theme", isDarkTheme)) isDarkTheme = true;
-                    if (ImGui::RadioButton("Light Theme", !isDarkTheme)) isDarkTheme = false;
-                    if (isDarkTheme != wasDark) {
-                        if (isDarkTheme) ImGui::StyleColorsDark();
-                        else ImGui::StyleColorsLight();
+                {
+                    static bool registered = false;
+                    if (!registered) {
+                        RegisterSpotlightItem({"About", "Seaweed", [&]() { st.showAbout = !st.showAbout; }, [&]() { return st.showAbout; }});
+                        RegisterSpotlightItem({"Theme", "Seaweed", [&]() { st.showTheme = !st.showTheme; }, [&]() { return st.showTheme; }, {"dark", "light", "colors", "appearance", "style"}});
+                        RegisterSpotlightItem({"Restart", "Seaweed", [&]() { RestartApp(argc, argv, window, gl_context); }, nullptr});
+                        RegisterSpotlightItem({"Close App", "Seaweed", [&]() { running = false; }, nullptr});
+                        RegisterSpotlightItem({"Close All", "Seaweed", [&]() {
+                            st.showAbout = false;
+                            st.showTheme = false;
+                            st.showDemo = false;
+                            st.showDeviceList = false;
+                            st.showEmulator = false;
+                            st.showWireless = false;
+                        }, [&]() {
+                            return st.showAbout || st.showTheme || st.showDemo ||
+                                   st.showDeviceList || st.showEmulator || st.showWireless;
+                        }, {"clean", "hide", "windows"}, false});
+                        RegisterSpotlightItem({"Demo Window", "Seaweed", [&]() { st.showDemo = !st.showDemo; }, [&]() { return st.showDemo; }, {"debug", "test", "example"}});
+                        RegisterSpotlightItem({"Device List", "Devices", [&]() { st.showDeviceList = !st.showDeviceList; }, [&]() { return st.showDeviceList; }});
+                        RegisterSpotlightItem({"Emulator", "Devices", [&]() { st.showEmulator = !st.showEmulator; }, [&]() { return st.showEmulator; }});
+                        RegisterSpotlightItem({"Wireless", "Devices", [&]() { st.showWireless = !st.showWireless; }, [&]() { return st.showWireless; }});
+                        registered = true;
                     }
                 }
-                ImGui::End();
-            }
 
-            if (st.showDeviceList) {
-                if (ImGui::Begin("Device List", &st.showDeviceList)) {
-                    auto devices = GlobalConfig::GetDevices();
-                    std::string selectedId = GlobalConfig::GetSelectedDeviceId();
+                RenderSpotlight();
 
-                    if (devices.empty()) {
-                        ImGui::TextDisabled("No devices found. Connect a device or start an emulator.");
-                    } else {
-                        ImGui::Text("Devices: %zu", devices.size());
+                if (st.showAbout) {
+                    if (ImGui::Begin("About Seaweed", &st.showAbout)) {
+                        char buf[1024];
+
+                        ImGui::Text("Name"); ImGui::SameLine(120);
+                        snprintf(buf, sizeof(buf), "Seaweed");
+                        ImGui::InputText("##name", buf, sizeof(buf), ImGuiInputTextFlags_ReadOnly);
+
+                        ImGui::Text("Version"); ImGui::SameLine(120);
+                        snprintf(buf, sizeof(buf), "1.0.0");
+                        ImGui::InputText("##version", buf, sizeof(buf), ImGuiInputTextFlags_ReadOnly);
+
+                        ImGui::Text("Developer"); ImGui::SameLine(120);
+                        snprintf(buf, sizeof(buf), "Raju Shingadiya");
+                        ImGui::InputText("##developer", buf, sizeof(buf), ImGuiInputTextFlags_ReadOnly);
+
                         ImGui::Separator();
 
-                        if (ImGui::BeginTable("devices", 4,
-                            ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
-                            ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_Resizable))
-                        {
-                            ImGui::TableSetupColumn("Device");
-                            ImGui::TableSetupColumn("ID");
-                            ImGui::TableSetupColumn("OS");
-                            ImGui::TableSetupColumn("State");
-                            ImGui::TableHeadersRow();
+                        ImGui::Text("OS"); ImGui::SameLine(120);
+                        snprintf(buf, sizeof(buf), "%s", osVersion.c_str());
+                        ImGui::InputText("##os", buf, sizeof(buf), ImGuiInputTextFlags_ReadOnly);
 
-                            for (int i = 0; i < (int)devices.size(); i++) {
-                                const auto& d = devices[i];
-                                bool isSelected = (d.deviceId == selectedId);
+                        ImGui::Text("ADB Path"); ImGui::SameLine(120);
+                        std::string curAdbPath = GlobalConfig::GetADBPath();
+                        snprintf(buf, sizeof(buf), "%s", curAdbPath.empty() ? "Not found" : curAdbPath.c_str());
+                        ImGui::InputText("##adbpath", buf, sizeof(buf), ImGuiInputTextFlags_ReadOnly);
 
-                                ImGui::TableNextRow();
-                                ImGui::TableNextColumn();
+                        ImGui::Text("Device"); ImGui::SameLine(120);
+                        std::string selectedDevice = GlobalConfig::GetSelectedDeviceId();
+                        snprintf(buf, sizeof(buf), "%s", selectedDevice.empty() ? "None" : selectedDevice.c_str());
+                        ImGui::InputText("##device", buf, sizeof(buf), ImGuiInputTextFlags_ReadOnly);
 
-                                ImGui::PushID(i);
-                                std::string label = (isSelected ? "[x] " : "[ ] ") + d.deviceName;
-                                if (ImGui::Selectable(label.c_str(), isSelected,
-                                    ImGuiSelectableFlags_SpanAllColumns))
-                                {
-                                    GlobalConfig::SetSelectedDeviceId(d.deviceId);
-                                }
-                                ImGui::TableNextColumn();
-                                ImGui::Text("%s", d.deviceId.c_str());
-                                ImGui::TableNextColumn();
-                                ImGui::Text("%s", d.osVersion.empty() ? "-" : d.osVersion.c_str());
-                                ImGui::TableNextColumn();
-                                ImGui::Text("%s", AdbStateToString(d.state));
-                                ImGui::PopID();
-                            }
-                            ImGui::EndTable();
+                        ImGui::Text("ADB Version"); ImGui::SameLine(120);
+                        std::string adbVerStr = ExecCmd(GlobalConfig::BuildAdbCommand("version").c_str());
+                        if (adbVerStr.empty()) adbVerStr = "Not found";
+                        ImGui::InputTextMultiline("##adbver", &adbVerStr[0], adbVerStr.size() + 1,
+                            ImVec2(-1, -1), ImGuiInputTextFlags_ReadOnly);
+                    }
+                    ImGui::End();
+                }
+
+                if (st.showTheme) {
+                    if (ImGui::Begin("Theme", &st.showTheme)) {
+                        bool wasDark = isDarkTheme;
+                        ImGui::Text("Current: %s", isDarkTheme ? "Dark" : "Light");
+                        ImGui::Separator();
+                        if (ImGui::RadioButton("Dark Theme", isDarkTheme)) isDarkTheme = true;
+                        if (ImGui::RadioButton("Light Theme", !isDarkTheme)) isDarkTheme = false;
+                        if (isDarkTheme != wasDark) {
+                            if (isDarkTheme) ImGui::StyleColorsDark();
+                            else ImGui::StyleColorsLight();
                         }
                     }
+                    ImGui::End();
                 }
-                ImGui::End();
-            }
-            if (st.showEmulator) {
-                if (ImGui::Begin("Emulator", &st.showEmulator)) {
-                    auto& em = EmulatorManager::GetInstance();
-                    bool scanning = em.IsScanning();
 
-                    if (ImGui::Button(scanning ? "Scanning..." : "Refresh", ImVec2(120, 0))) {
-                        if (!scanning) em.ScanEmulators();
-                    }
-                    ImGui::SameLine();
-                    std::string emPath = em.GetEmulatorPath();
-                    if (!emPath.empty()) {
-                        ImGui::TextDisabled("Emulator: %s", emPath.c_str());
-                    } else {
-                        ImGui::TextDisabled("Emulator not found in default paths");
-                    }
+                if (st.showDeviceList) {
+                    if (ImGui::Begin("Device List", &st.showDeviceList)) {
+                        auto devices = GlobalConfig::GetDevices();
+                        std::string selectedId = GlobalConfig::GetSelectedDeviceId();
 
-                    ImGui::Separator();
+                        if (devices.empty()) {
+                            ImGui::TextDisabled("No devices found. Connect a device or start an emulator.");
+                        } else {
+                            ImGui::Text("Devices: %zu", devices.size());
+                            ImGui::Separator();
 
-                    auto emulators = em.GetEmulators();
-                    if (emulators.empty() && !scanning) {
-                        ImGui::TextDisabled("No emulators found. Press Refresh to scan.");
-                    } else if (scanning) {
-                        ImGui::TextDisabled("Scanning for emulators...");
-                    } else {
-                        if (ImGui::BeginTable("emulators", 4,
-                            ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
-                            ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_Resizable))
-                        {
-                            ImGui::TableSetupColumn("Name");
-                            ImGui::TableSetupColumn("Status");
-                            ImGui::TableSetupColumn("Device ID");
-                            ImGui::TableSetupColumn("Actions");
-                            ImGui::TableHeadersRow();
+                            if (ImGui::BeginTable("devices", 4,
+                                ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
+                                ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_Resizable))
+                            {
+                                ImGui::TableSetupColumn("Device");
+                                ImGui::TableSetupColumn("ID");
+                                ImGui::TableSetupColumn("OS");
+                                ImGui::TableSetupColumn("State");
+                                ImGui::TableHeadersRow();
 
-                            for (int i = 0; i < (int)emulators.size(); i++) {
-                                const auto& e = emulators[i];
+                                for (int i = 0; i < (int)devices.size(); i++) {
+                                    const auto& d = devices[i];
+                                    bool isSelected = (d.deviceId == selectedId);
 
-                                ImGui::TableNextRow();
-                                ImGui::TableNextColumn();
-                                ImGui::Text("%s", e.name.c_str());
-                                ImGui::TableNextColumn();
-                                if (e.isRunning) {
-                                    ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "Running");
-                                } else {
-                                    ImGui::Text("Stopped");
-                                }
-                                ImGui::TableNextColumn();
-                                ImGui::Text("%s", e.isRunning ? e.deviceId.c_str() : "-");
-                                ImGui::TableNextColumn();
+                                    ImGui::TableNextRow();
+                                    ImGui::TableNextColumn();
 
-                                ImGui::PushID(i);
-                                if (e.isRunning) {
-                                    if (ImGui::Button("Stop", ImVec2(60, 0))) {
-                                        em.StopEmulator(e.deviceId);
+                                    ImGui::PushID(i);
+                                    std::string label = (isSelected ? "[x] " : "[ ] ") + d.deviceName;
+                                    if (ImGui::Selectable(label.c_str(), isSelected,
+                                        ImGuiSelectableFlags_SpanAllColumns))
+                                    {
+                                        GlobalConfig::SetSelectedDeviceId(d.deviceId);
                                     }
-                                } else {
-                                    if (ImGui::Button("Start", ImVec2(60, 0))) {
-                                        em.StartEmulator(e.name);
-                                    }
+                                    ImGui::TableNextColumn();
+                                    ImGui::Text("%s", d.deviceId.c_str());
+                                    ImGui::TableNextColumn();
+                                    ImGui::Text("%s", d.osVersion.empty() ? "-" : d.osVersion.c_str());
+                                    ImGui::TableNextColumn();
+                                    ImGui::Text("%s", AdbStateToString(d.state));
+                                    ImGui::PopID();
                                 }
-                                ImGui::PopID();
+                                ImGui::EndTable();
                             }
-                            ImGui::EndTable();
                         }
                     }
+                    ImGui::End();
                 }
-                ImGui::End();
-            }
-            if (st.showWireless) {
-                if (ImGui::Begin("Wireless", &st.showWireless)) {
-                    ImGui::Text("Coming soon...");
-                }
-                ImGui::End();
-            }
+                if (st.showEmulator) {
+                    if (ImGui::Begin("Emulator", &st.showEmulator)) {
+                        auto& em = EmulatorManager::GetInstance();
+                        bool scanning = em.IsScanning();
 
-            if (st.showDemo)
-                ImGui::ShowDemoWindow(&st.showDemo);
+                        if (ImGui::Button(scanning ? "Scanning..." : "Refresh", ImVec2(120, 0))) {
+                            if (!scanning) em.ScanEmulators();
+                        }
+                        ImGui::SameLine();
+                        std::string emPath = em.GetEmulatorPath();
+                        if (!emPath.empty()) {
+                            ImGui::TextDisabled("Emulator: %s", emPath.c_str());
+                        } else {
+                            ImGui::TextDisabled("Emulator not found in default paths");
+                        }
+
+                        ImGui::Separator();
+
+                        auto emulators = em.GetEmulators();
+                        if (emulators.empty() && !scanning) {
+                            ImGui::TextDisabled("No emulators found. Press Refresh to scan.");
+                        } else if (scanning) {
+                            ImGui::TextDisabled("Scanning for emulators...");
+                        } else {
+                            if (ImGui::BeginTable("emulators", 4,
+                                ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
+                                ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_Resizable))
+                            {
+                                ImGui::TableSetupColumn("Name");
+                                ImGui::TableSetupColumn("Status");
+                                ImGui::TableSetupColumn("Device ID");
+                                ImGui::TableSetupColumn("Actions");
+                                ImGui::TableHeadersRow();
+
+                                for (int i = 0; i < (int)emulators.size(); i++) {
+                                    const auto& e = emulators[i];
+
+                                    ImGui::TableNextRow();
+                                    ImGui::TableNextColumn();
+                                    ImGui::Text("%s", e.name.c_str());
+                                    ImGui::TableNextColumn();
+                                    if (e.isRunning) {
+                                        ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "Running");
+                                    } else {
+                                        ImGui::Text("Stopped");
+                                    }
+                                    ImGui::TableNextColumn();
+                                    ImGui::Text("%s", e.isRunning ? e.deviceId.c_str() : "-");
+                                    ImGui::TableNextColumn();
+
+                                    ImGui::PushID(i);
+                                    if (e.isRunning) {
+                                        if (ImGui::Button("Stop", ImVec2(60, 0))) {
+                                            em.StopEmulator(e.deviceId);
+                                        }
+                                    } else {
+                                        if (ImGui::Button("Start", ImVec2(60, 0))) {
+                                            em.StartEmulator(e.name);
+                                        }
+                                    }
+                                    ImGui::PopID();
+                                }
+                                ImGui::EndTable();
+                            }
+                        }
+                    }
+                    ImGui::End();
+                }
+                if (st.showWireless) {
+                    if (ImGui::Begin("Wireless", &st.showWireless)) {
+                        ImGui::Text("Coming soon...");
+                    }
+                    ImGui::End();
+                }
+
+                if (st.showDemo)
+                    ImGui::ShowDemoWindow(&st.showDemo);
 
             }
             ImGui::Render();
-            int w, h;
-            SDL_GL_GetDrawableSize(window, &w, &h);
-            glViewport(0, 0, w, h);
+            int display_w, display_h;
+            SDL_GL_GetDrawableSize(window, &display_w, &display_h);
+            glViewport(0, 0, display_w, display_h);
             glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
             glClear(GL_COLOR_BUFFER_BIT);
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
             SDL_GL_SwapWindow(window);
         }
 
-        SDL_GetWindowSize(window, &st.w, &st.h);
-        SDL_GetWindowPosition(window, &st.x, &st.y);
         SaveState(st);
 
         ImGui_ImplOpenGL3_Shutdown();
