@@ -9,6 +9,7 @@
 #include "device_manager.h"
 #include "global_config.h"
 #include "emulator_manager.h"
+#include "setup.h"
 #include <iostream>
 #include <stdexcept>
 #include <cstdio>
@@ -216,47 +217,14 @@ int main(int argc, char* argv[]) {
         );
         if (osVersion.empty()) osVersion = "Unknown";
 
-        std::string adbPath;
-        const char* adbCandidates[] = {
-            "/opt/homebrew/bin/adb",
-            "/usr/local/bin/adb",
-            "/usr/bin/adb",
-            "/opt/homebrew/bin/adb",
-        };
-        for (auto p : adbCandidates) {
-            FILE* f = fopen(p, "r");
-            if (f) { fclose(f); adbPath = p; break; }
+        bool setupComplete = PlatformToolsExist();
+        if (setupComplete) {
+            GlobalConfig::InitializeADBPath();
+            std::string adbPath = GlobalConfig::GetADBPath();
+            GlobalConfig::InitializeDeviceManager();
+            GlobalConfig::StartDeviceMonitoring();
+            EmulatorManager::GetInstance().SetAdbPath(adbPath);
         }
-        if (adbPath.empty()) {
-#ifdef _WIN32
-            const char* pf = getenv("LOCALAPPDATA");
-            if (pf) adbPath = std::string(pf) + "\\Android\\Sdk\\platform-tools\\adb.exe";
-#else
-            const char* home = getenv("HOME");
-            if (home) {
-                std::string p = std::string(home) + "/Library/Android/sdk/platform-tools/adb";
-                FILE* f = fopen(p.c_str(), "r");
-                if (f) { fclose(f); adbPath = p; }
-                else {
-                    p = std::string(home) + "/Android/Sdk/platform-tools/adb";
-                    f = fopen(p.c_str(), "r");
-                    if (f) { fclose(f); adbPath = p; }
-                }
-            }
-#endif
-        }
-
-        GlobalConfig::SetADBPath(adbPath);
-        GlobalConfig::InitializeDeviceManager();
-        GlobalConfig::StartDeviceMonitoring();
-        EmulatorManager::GetInstance().SetAdbPath(adbPath);
-
-        std::string adbVersion;
-        if (!adbPath.empty()) {
-            adbVersion = ExecCmd((adbPath + " version").c_str());
-        }
-        if (adbVersion.empty()) adbVersion = "Not found";
-        
         while (running) {
             SDL_Event event;
             while (SDL_PollEvent(&event)) {
@@ -270,8 +238,17 @@ int main(int argc, char* argv[]) {
             ImGui_ImplSDL2_NewFrame();
             ImGui::NewFrame();
 
-            if (ImGui::BeginMainMenuBar())
-            {
+            if (!setupComplete) {
+                ShowSetup(setupComplete);
+                if (setupComplete) {
+                    std::string adbPath = GlobalConfig::GetADBPath();
+                    GlobalConfig::InitializeDeviceManager();
+                    GlobalConfig::StartDeviceMonitoring();
+                    EmulatorManager::GetInstance().SetAdbPath(adbPath);
+                }
+            } else {
+                if (ImGui::BeginMainMenuBar())
+                {
                 if (ImGui::BeginMenu("Seaweed"))
                 {
                     if (ImGui::MenuItem("About", nullptr, &st.showAbout)) {}
@@ -351,7 +328,8 @@ int main(int argc, char* argv[]) {
                     ImGui::InputText("##os", buf, sizeof(buf), ImGuiInputTextFlags_ReadOnly);
 
                     ImGui::Text("ADB Path"); ImGui::SameLine(120);
-                    snprintf(buf, sizeof(buf), "%s", adbPath.empty() ? "Not found" : adbPath.c_str());
+                    std::string curAdbPath = GlobalConfig::GetADBPath();
+                    snprintf(buf, sizeof(buf), "%s", curAdbPath.empty() ? "Not found" : curAdbPath.c_str());
                     ImGui::InputText("##adbpath", buf, sizeof(buf), ImGuiInputTextFlags_ReadOnly);
 
                     ImGui::Text("Device"); ImGui::SameLine(120);
@@ -360,7 +338,9 @@ int main(int argc, char* argv[]) {
                     ImGui::InputText("##device", buf, sizeof(buf), ImGuiInputTextFlags_ReadOnly);
 
                     ImGui::Text("ADB Version"); ImGui::SameLine(120);
-                    ImGui::InputTextMultiline("##adbver", &adbVersion[0], adbVersion.size() + 1,
+                    std::string adbVerStr = ExecCmd((curAdbPath + " version").c_str());
+                    if (adbVerStr.empty()) adbVerStr = "Not found";
+                    ImGui::InputTextMultiline("##adbver", &adbVerStr[0], adbVerStr.size() + 1,
                         ImVec2(-1, -1), ImGuiInputTextFlags_ReadOnly);
                 }
                 ImGui::End();
@@ -508,6 +488,7 @@ int main(int argc, char* argv[]) {
             if (st.showDemo)
                 ImGui::ShowDemoWindow(&st.showDemo);
 
+            }
             ImGui::Render();
             int w, h;
             SDL_GL_GetDrawableSize(window, &w, &h);
