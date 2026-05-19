@@ -170,8 +170,7 @@ public:
 
         ImGui::End();
 
-        if (m_showDetail)
-            RenderDetailWindow();
+        RenderDetailWindow();
     }
 
     bool* GetShowPtr() { return &m_show; }
@@ -219,7 +218,7 @@ private:
             if (ImGui::Selectable(label.c_str(), m_selectedIndex == static_cast<int>(i))) {
                 m_selectedIndex = static_cast<int>(i);
                 m_detailContact = m_contacts[i];
-                m_showDetail = true;
+                m_showDetailsPanel = true;
             }
             ImGui::PopID();
         }
@@ -242,8 +241,9 @@ private:
     }
 
     void RenderDetailWindow() {
+        if (!m_showDetailsPanel) return;
         ImGui::SetNextWindowSize(ImVec2(600, 400), ImGuiCond_FirstUseEver);
-        if (!ImGui::Begin("Contact Details", &m_showDetail, ImGuiWindowFlags_NoDocking)) {
+        if (!ImGui::Begin("Contact Details", &m_showDetailsPanel)) {
             ImGui::End();
             return;
         }
@@ -304,7 +304,7 @@ private:
     }
 
     bool m_show = false;
-    bool m_showDetail = false;
+    bool m_showDetailsPanel = false;
     Contact m_detailContact;
     int m_selectedIndex = -1;
     char m_filterBuf[256] = {};
