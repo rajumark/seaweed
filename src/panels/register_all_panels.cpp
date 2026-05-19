@@ -9,6 +9,12 @@
 #include "call_logs_panel.h"
 #include "messages_panel.h"
 #include "settings_panel.h"
+#include "calendar_panel.h"
+#include "media_panel.h"
+#include "processes_panel.h"
+#include "lifecycle_panel.h"
+#include "device_properties_panel.h"
+#include "debug_info_panel.h"
 
 void RegisterAllPanels() {
     RegisterAboutPanel();
@@ -21,4 +27,10 @@ void RegisterAllPanels() {
     RegisterCallLogsPanel();
     RegisterMessagesPanel();
     RegisterSettingsPanel();
+    RegisterCalendarPanel();
+    RegisterMediaPanel();
+    RegisterProcessesPanel();
+    RegisterLifecyclePanel();
+    RegisterDevicePropertiesPanel();
+    RegisterDebugInfoPanel();
 }
