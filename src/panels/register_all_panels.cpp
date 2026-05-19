@@ -8,6 +8,7 @@
 #include "contacts_panel.h"
 #include "call_logs_panel.h"
 #include "messages_panel.h"
+#include "settings_panel.h"
 
 void RegisterAllPanels() {
     RegisterAboutPanel();
@@ -19,4 +20,5 @@ void RegisterAllPanels() {
     RegisterContactsPanel();
     RegisterCallLogsPanel();
     RegisterMessagesPanel();
+    RegisterSettingsPanel();
 }
