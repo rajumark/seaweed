@@ -5,6 +5,7 @@
 #include "emulator_panel.h"
 #include "wireless_panel.h"
 #include "apps_panel.h"
+#include "contacts_panel.h"
 
 void RegisterAllPanels() {
     RegisterAboutPanel();
@@ -13,4 +14,5 @@ void RegisterAllPanels() {
     RegisterEmulatorPanel();
     RegisterWirelessPanel();
     RegisterAppsPanel();
+    RegisterContactsPanel();
 }
