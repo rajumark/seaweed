@@ -3,6 +3,7 @@
 #include "core/capability/capability_service.h"
 #include "global_config.h"
 #include "imgui.h"
+#include <iostream>
 #include <string>
 #include <vector>
 #include <map>
@@ -12,12 +13,14 @@
 #include <chrono>
 #include <ctime>
 
+namespace {
+
 struct LifecycleEntry {
     std::string time;
     std::string type;
     std::string packageName;
     std::string className;
-    std::map<std::string, std::string> rawdata;
+    std::vector<std::pair<std::string, std::string>> rawdata;
 };
 
 static std::string Trim(std::string s) {
@@ -109,7 +112,9 @@ static std::vector<LifecycleEntry> ParseLifecycleEvents(const std::vector<std::s
             continue;
 
         LifecycleEntry e;
-        e.rawdata = raw;
+        for (const auto& [k, v] : raw) {
+            e.rawdata.push_back({k, v});
+        }
 
         auto it = raw.find("time");
         if (it != raw.end()) e.time = it->second;
@@ -307,12 +312,20 @@ private:
         detailField("Package", m_detailEntry.packageName.empty() ? "-" : m_detailEntry.packageName);
         detailField("Class", m_detailEntry.className.empty() ? "-" : m_detailEntry.className);
 
-        auto it = m_detailEntry.rawdata.find("instanceId");
-        if (it != m_detailEntry.rawdata.end())
-            detailField("Instance ID", it->second);
-        it = m_detailEntry.rawdata.find("flags");
-        if (it != m_detailEntry.rawdata.end())
-            detailField("Flags", it->second);
+        auto findRaw = [](const std::vector<std::pair<std::string, std::string>>& raw, const std::string& key) -> std::string {
+            for (const auto& p : raw) {
+                if (p.first == key) return p.second;
+            }
+            return "";
+        };
+
+        std::string instId = findRaw(m_detailEntry.rawdata, "instanceId");
+        if (!instId.empty())
+            detailField("Instance ID", instId);
+
+        std::string flgs = findRaw(m_detailEntry.rawdata, "flags");
+        if (!flgs.empty())
+            detailField("Flags", flgs);
 
         if (!m_detailEntry.rawdata.empty()) {
             ImGui::SeparatorText("Raw Data");
@@ -336,9 +349,8 @@ private:
                     ImGui::TableNextColumn();
                     ImGui::Text("%s", key.c_str());
                     ImGui::TableNextColumn();
-                    auto it2 = m_detailEntry.rawdata.find(key);
-                    if (it2 != m_detailEntry.rawdata.end())
-                        ImGui::TextWrapped("%s", it2->second.c_str());
+                    std::string val = findRaw(m_detailEntry.rawdata, key);
+                    ImGui::TextWrapped("%s", val.c_str());
                 }
                 ImGui::EndTable();
             }
@@ -373,6 +385,8 @@ private:
     std::string m_cachedDeviceId;
     std::chrono::steady_clock::time_point m_lastRefresh;
 };
+
+} // namespace
 
 static LifecyclePanel* s_panel = nullptr;
 
