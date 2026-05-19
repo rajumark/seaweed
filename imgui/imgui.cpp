@@ -1250,6 +1250,8 @@ IMPLEMENTING SUPPORT for ImGuiBackendFlags_RendererHasTextures:
 #include "imgui.h"
 #ifndef IMGUI_DISABLE
 #include "imgui_internal.h"
+#include <execinfo.h>
+#include <unistd.h>
 
 // System includes
 #include <stdio.h>      // vsnprintf, sscanf, printf
@@ -9953,6 +9955,24 @@ ImGuiID ImGui::GetIDWithSeed(int n, ImGuiID seed)
 void ImGui::PopID()
 {
     ImGuiWindow* window = GImGui->CurrentWindow;
+    if (window->IDStack.Size <= 1)
+    {
+        FILE* f = fopen("/Users/raju/Documents/github/seaweed/build/backtrace.txt", "a");
+        if (f) {
+            fprintf(f, "=== PopID ERROR BACKTRACE IN WINDOW: %s ===\n", window ? window->Name : "NULL");
+            void* array[20];
+            size_t size = backtrace(array, 20);
+            char** symbols = backtrace_symbols(array, size);
+            if (symbols) {
+                for (size_t i = 0; i < size; i++) {
+                    fprintf(f, "%s\n", symbols[i]);
+                }
+                free(symbols);
+            }
+            fprintf(f, "=========================================\n\n");
+            fclose(f);
+        }
+    }
     IM_ASSERT_USER_ERROR_RET(window->IDStack.Size > 1, "Calling PopID() too many times!");
     window->IDStack.pop_back();
 }
