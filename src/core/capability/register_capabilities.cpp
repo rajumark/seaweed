@@ -98,6 +98,28 @@ void RegisterAllCapabilities() {
     });
 
     reg.Register({
+        "list_messages",
+        "List Messages",
+        "Data",
+        "shell content query --uri content://sms",
+        CachePolicy::Fixed,
+        30000,
+        [](const std::string& output) -> std::vector<std::string> {
+            std::vector<std::string> lines;
+            std::istringstream iss(output);
+            std::string line;
+            while (std::getline(iss, line)) {
+                line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
+                if (!line.empty())
+                    lines.push_back(line);
+            }
+            return lines;
+        },
+        {"messages", "sms", "text"},
+        true
+    });
+
+    reg.Register({
         "list_call_logs",
         "List Call Logs",
         "Data",
