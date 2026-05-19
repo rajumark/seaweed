@@ -19,13 +19,9 @@ file(GLOB IMGUI_SRC
     imgui/backends/imgui_impl_opengl3.cpp
 )
 
-# App source files
-file(GLOB APP_SRC
+# App source files (recursive - auto-picks up new subdirectories)
+file(GLOB_RECURSE APP_SRC
     src/*.cpp
-    src/core/registry/*.cpp
-    src/core/capability/*.cpp
-    src/core/ui/*.cpp
-    src/panels/*.cpp
 )
 
 # Add executable

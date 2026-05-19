@@ -3,8 +3,40 @@
 #include "emulator_manager.h"
 #include "imgui.h"
 #include <string>
+#include <thread>
+#include <cstdlib>
 
 static bool s_show = false;
+static bool s_hasAutoRefreshed = false;
+
+static std::string GetHomeDir() {
+#ifdef _WIN32
+    const char* home = getenv("USERPROFILE");
+    return home ? home : "C:\\";
+#else
+    const char* home = getenv("HOME");
+    return home ? home : "/tmp";
+#endif
+}
+
+static void OpenInFileManager(const std::string& path) {
+    std::string cmd;
+#ifdef _WIN32
+    cmd = "explorer \"" + path + "\"";
+#elif defined(__APPLE__)
+    cmd = "open \"" + path + "\"";
+#else
+    cmd = "xdg-open \"" + path + "\"";
+#endif
+    std::thread([cmd]() { system(cmd.c_str()); }).detach();
+}
+
+static std::string GetAvdFolderPath(const std::string& avdName) {
+    const char* avdHome = getenv("ANDROID_AVD_HOME");
+    if (avdHome && avdHome[0])
+        return std::string(avdHome) + "/" + avdName + ".avd/";
+    return GetHomeDir() + "/.android/avd/" + avdName + ".avd/";
+}
 
 static void DrawEmulatorPanel() {
     if (!s_show) return;
@@ -13,15 +45,18 @@ static void DrawEmulatorPanel() {
         auto& em = EmulatorManager::GetInstance();
         bool scanning = em.IsScanning();
 
-        if (ImGui::Button(scanning ? "Scanning..." : "Refresh", ImVec2(120, 0))) {
-            if (!scanning) em.ScanEmulators();
+        // Auto-refresh on first show
+        if (!s_hasAutoRefreshed && !scanning) {
+            em.ScanEmulators();
+            s_hasAutoRefreshed = true;
+            scanning = true;
         }
-        ImGui::SameLine();
-        std::string emPath = em.GetEmulatorPath();
-        if (!emPath.empty()) {
-            ImGui::TextDisabled("Emulator: %s", emPath.c_str());
-        } else {
-            ImGui::TextDisabled("Emulator not found in default paths");
+
+        if (ImGui::Button(scanning ? "Scanning..." : "Refresh", ImVec2(120, 0))) {
+            if (!scanning) {
+                em.ScanEmulators();
+                s_hasAutoRefreshed = true;
+            }
         }
 
         ImGui::Separator();
@@ -32,7 +67,7 @@ static void DrawEmulatorPanel() {
         } else if (scanning) {
             ImGui::TextDisabled("Scanning for emulators...");
         } else {
-            if (ImGui::BeginTable("emulators", 4,
+            if (ImGui::BeginTable("emulators", 5,
                 ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
                 ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_Resizable))
             {
@@ -40,6 +75,7 @@ static void DrawEmulatorPanel() {
                 ImGui::TableSetupColumn("Status");
                 ImGui::TableSetupColumn("Device ID");
                 ImGui::TableSetupColumn("Actions");
+                ImGui::TableSetupColumn("Files");
                 ImGui::TableHeadersRow();
 
                 for (int i = 0; i < (int)emulators.size(); i++) {
@@ -67,6 +103,14 @@ static void DrawEmulatorPanel() {
                         if (ImGui::Button("Start", ImVec2(60, 0))) {
                             em.StartEmulator(e.name);
                         }
+                    }
+                    ImGui::PopID();
+
+                    ImGui::TableNextColumn();
+                    ImGui::PushID(1000 + i);
+                    if (ImGui::Button("Open Folder", ImVec2(0, 0))) {
+                        std::string folder = GetAvdFolderPath(e.name);
+                        OpenInFileManager(folder);
                     }
                     ImGui::PopID();
                 }
