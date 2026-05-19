@@ -6,6 +6,7 @@
 #include "wireless_panel.h"
 #include "apps_panel.h"
 #include "contacts_panel.h"
+#include "call_logs_panel.h"
 
 void RegisterAllPanels() {
     RegisterAboutPanel();
@@ -15,4 +16,5 @@ void RegisterAllPanels() {
     RegisterWirelessPanel();
     RegisterAppsPanel();
     RegisterContactsPanel();
+    RegisterCallLogsPanel();
 }
