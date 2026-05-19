@@ -132,7 +132,7 @@ The Windows build is configured to use **static runtime linking** to eliminate t
 The code execution cannot proceed because MSVCP140.dll was not found.
 The code execution cannot proceed because VCRUNTIME140.dll was not found.
 ```
-
+ 
 **Key Configuration:**
 - `CMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded"` in CMakeLists.txt
 - `/MT` compiler flags for Release builds
