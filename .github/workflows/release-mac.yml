@@ -1,0 +1,68 @@
+name: Release (macOS ARM64)
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-mac-arm64:
+    name: macOS ARM64
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '#go')
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          echo "::group::Install Homebrew dependencies"
+          brew install cmake sdl2 create-dmg
+          echo "[OK] Dependencies installed"
+          echo "::endgroup::"
+      - name: Configure and Build
+        env:
+          PKG_CONFIG_PATH: /opt/homebrew/opt/sdl2/lib/pkgconfig
+        run: |
+          echo "::group::CMake configure"
+          rm -rf build && mkdir build && cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64
+          echo "[OK] CMake configured"
+          echo "::endgroup::"
+          echo "::group::Compile"
+          make -j$(sysctl -n hw.ncpu)
+          echo "[OK] Build complete"
+          echo "::endgroup::"
+      - name: Verify binary
+        run: |
+          echo "::group::Verify binary"
+          file build/imgui_app.app/Contents/MacOS/imgui_app
+          ls -lh build/imgui_app.app/Contents/MacOS/imgui_app
+          echo "[OK] Binary ready"
+          echo "::endgroup::"
+      - name: Package DMG
+        run: |
+          echo "::group::Create DMG"
+          VERSION=1.0.1
+          mkdir -p dist/imgui_folder/ADBKing.app/Contents/{MacOS,Resources}
+          cp build/imgui_app.app/Contents/MacOS/imgui_app dist/imgui_folder/ADBKing.app/Contents/MacOS/imgui_app
+          chmod +x dist/imgui_folder/ADBKing.app/Contents/MacOS/imgui_app
+          cp Info.plist dist/imgui_folder/ADBKing.app/Contents/Info.plist
+          cp desktop-icons/icon-mac.icns dist/imgui_folder/ADBKing.app/Contents/Resources/
+          codesign --force --deep --options runtime --timestamp=none --sign - dist/imgui_folder/ADBKing.app
+          ln -sf /Applications dist/imgui_folder/Applications
+          create-dmg --volname "ADBKing" --window-pos 200 120 --window-size 600 400 \
+            --icon-size 100 --icon "ADBKing.app" 150 200 --icon "Applications" 350 200 \
+            --hide-extension "ADBKing.app" --app-drop-link 350 200 \
+            "dist/ADBKing-${VERSION}-arm64.dmg" "dist/imgui_folder"
+          echo "[OK] DMG created at dist/ADBKing-${VERSION}-arm64.dmg"
+          ls -lh "dist/ADBKing-${VERSION}-arm64.dmg"
+          echo "::endgroup::"
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.1-${{ github.run_number }}-mac
+          name: ADBKing v1.0.1 macOS ARM64 (${{ github.run_number }})
+          body: |
+            Automated macOS ARM64 release for commit ${{ github.sha }}
+          files: dist/*.dmg
+          generate_release_notes: true

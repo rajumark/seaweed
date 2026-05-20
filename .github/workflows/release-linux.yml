@@ -1,0 +1,62 @@
+name: Release (Linux)
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    name: Linux
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '#go')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          echo "::group::Install apt packages"
+          sudo apt-get update
+          sudo apt-get install -y libsdl2-dev libcurl4-openssl-dev cmake pkg-config
+          echo "[OK] Dependencies installed"
+          echo "::endgroup::"
+      - name: Configure and Build
+        run: |
+          echo "::group::CMake configure"
+          rm -rf build && mkdir build && cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Release
+          echo "[OK] CMake configured"
+          echo "::endgroup::"
+          echo "::group::Compile"
+          make -j$(nproc)
+          echo "[OK] Build complete"
+          echo "::endgroup::"
+      - name: Verify binary
+        run: |
+          echo "::group::Verify binary"
+          file build/imgui_app
+          ls -lh build/imgui_app
+          echo "[OK] Binary ready"
+          echo "::endgroup::"
+      - name: Package tar.gz
+        run: |
+          echo "::group::Create tar.gz"
+          VERSION=1.0.1
+          mkdir -p dist/ADBKing
+          cp build/imgui_app dist/ADBKing/
+          cp desktop-icons/icon-linux.png dist/ADBKing/
+          chmod +x dist/ADBKing/imgui_app
+          cd dist
+          tar czf "ADBKing-${VERSION}-linux-x86_64.tar.gz" ADBKing/
+          echo "[OK] Package created at dist/ADBKing-${VERSION}-linux-x86_64.tar.gz"
+          ls -lh "ADBKing-${VERSION}-linux-x86_64.tar.gz"
+          echo "::endgroup::"
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.1-${{ github.run_number }}-linux
+          name: ADBKing v1.0.1 Linux (${{ github.run_number }})
+          body: |
+            Automated Linux release for commit ${{ github.sha }}
+          files: dist/*.tar.gz
+          generate_release_notes: true
