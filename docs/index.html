@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADBKing</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #ffffff;
+    --fg: #111111;
+    --muted: #666666;
+    --accent: #1a1a2e;
+    --border: #e0e0e0;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d0d0d;
+      --fg: #f0f0f0;
+      --muted: #888888;
+      --accent: #e0e0e0;
+      --border: #2a2a2a;
+    }
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Splash ── */
+  #splash {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    transition: opacity 0.6s ease;
+  }
+  #splash.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  #splash-text {
+    font-size: clamp(2rem, 6vw, 4.5rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    transition: opacity 0.4s ease;
+    text-align: center;
+    padding: 2rem;
+  }
+
+  /* ── Main ── */
+  main {
+    display: none;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 5rem 2rem;
+  }
+  main.visible { display: block; }
+
+  header {
+    margin-bottom: 4rem;
+  }
+
+  h1 {
+    font-size: clamp(2.5rem, 8vw, 5rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin-bottom: 0.5rem;
+  }
+
+  .tagline {
+    font-size: 1.15rem;
+    color: var(--muted);
+    margin-bottom: 2rem;
+  }
+
+  .hero-big {
+    font-size: clamp(3rem, 10vw, 6rem);
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin: 3rem 0 1.5rem;
+    color: var(--fg);
+  }
+
+  .btn {
+    display: inline-block;
+    padding: 0.85rem 2.5rem;
+    background: var(--fg);
+    color: var(--bg);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1rem;
+    border-radius: 6px;
+    border: 1px solid var(--fg);
+    transition: all 0.2s ease;
+  }
+  .btn:hover {
+    background: var(--bg);
+    color: var(--fg);
+  }
+
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 2rem;
+    margin: 4rem 0;
+  }
+
+  .feature h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+  }
+
+  .feature p {
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 3rem 0;
+  }
+
+  footer {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  a {
+    color: var(--fg);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  a:hover { opacity: 0.7; }
+</style>
+</head>
+<body>
+
+<div id="splash">
+  <div id="splash-text"></div>
+</div>
+
+<main id="main">
+  <header>
+    <h1>ADBKing</h1>
+    <p class="tagline">Desktop ADB commander built for speed.</p>
+    <a class="btn" href="https://github.com/rajumark/seaweed/releases" target="_blank" rel="noopener">Download</a>
+  </header>
+
+  <div class="hero-big">100% opensource</div>
+
+  <div class="features">
+    <div class="feature">
+      <h3>Raw speed</h3>
+      <p>Native C++ with Dear ImGui. No web wrappers, no Electron.</p>
+    </div>
+    <div class="feature">
+      <h3>ADB at your fingertips</h3>
+      <p>Devices, apps, wireless, emulators &mdash; all in one window.</p>
+    </div>
+    <div class="feature">
+      <h3>Spotlight search</h3>
+      <p>Keyboard-first. Built-in command palette for everything.</p>
+    </div>
+    <div class="feature">
+      <h3>Cross-platform</h3>
+      <p>macOS, Linux, Windows. One binary, no runtime deps.</p>
+    </div>
+  </div>
+
+  <hr>
+
+  <footer>
+    <p><a href="https://github.com/rajumark/seaweed">Source on GitHub</a></p>
+  </footer>
+</main>
+
+<script>
+(function() {
+  var splashEl = document.getElementById('splash');
+  var textEl = document.getElementById('splash-text');
+  var mainEl = document.getElementById('main');
+
+  var messages = [
+    '100% C++',
+    'Faster then your terminal',
+    'Just smell the RAM.'
+  ];
+
+  var idx = 0;
+
+  function showNext() {
+    if (idx < messages.length) {
+      textEl.textContent = messages[idx];
+      textEl.style.opacity = '1';
+      idx++;
+      setTimeout(function() {
+        textEl.style.opacity = '0';
+        setTimeout(showNext, 400);
+      }, 3000);
+    } else {
+      splashEl.classList.add('hidden');
+      mainEl.classList.add('visible');
+    }
+  }
+
+  showNext();
+})();
+</script>
+
+</body>
+</html>
