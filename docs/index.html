@@ -8,20 +8,30 @@
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
   :root {
-    --bg: #ffffff;
-    --fg: #111111;
-    --muted: #666666;
-    --accent: #1a1a2e;
-    --border: #e0e0e0;
+    /* ImGui Default Dark Theme */
+    --bg: #1e1e1e;
+    --fg: #e0e0e0;
+    --muted: #b0b0b0;
+    --border: #3c3c3c;
+    --hover: #2a2a2a;
+    --active: #3a3a3a;
+    --accent: #4a4a4a;
+    --accent-hover: #5a5a5a;
+    --accent-active: #6a6a6a;
   }
 
-  @media (prefers-color-scheme: dark) {
+  @media (prefers-color-scheme: light) {
     :root {
-      --bg: #0d0d0d;
-      --fg: #f0f0f0;
-      --muted: #888888;
-      --accent: #e0e0e0;
-      --border: #2a2a2a;
+      /* ImGui Light Theme Adaptation */
+      --bg: #f0f0f0;
+      --fg: #1a1a1a;
+      --muted: #505050;
+      --border: #c0c0c0;
+      --hover: #e0e0e0;
+      --active: #d8d8d8;
+      --accent: #d0d0d0;
+      --accent-hover: #c8c8c8;
+      --accent-active: #b8b8b8;
     }
   }
 
@@ -29,8 +39,19 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background: var(--bg);
     color: var(--fg);
-    line-height: 1.6;
+    line-height: 1.7;
+    padding: 2rem;
     -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Container like ImGui Window ── */
+  #container {
+    max-width: 900px;
+    margin: 0 auto;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
   }
 
   /* ── Splash ── */
@@ -44,35 +65,30 @@
     z-index: 999;
     transition: opacity 0.6s ease;
   }
-  #splash.hidden {
-    opacity: 0;
-    pointer-events: none;
-  }
+  #splash.hidden { opacity: 0; pointer-events: none; }
 
   #splash-text {
-    font-size: clamp(2rem, 6vw, 4.5rem);
+    font-size: clamp(2.5rem, 8vw, 5rem);
     font-weight: 700;
     letter-spacing: -0.02em;
-    transition: opacity 0.4s ease;
     text-align: center;
     padding: 2rem;
+    transition: opacity 0.4s ease;
   }
 
-  /* ── Main ── */
+  /* ── Main Content ── */
   main {
     display: none;
-    max-width: 720px;
-    margin: 0 auto;
-    padding: 5rem 2rem;
+    padding: 2.5rem;
   }
   main.visible { display: block; }
 
   header {
-    margin-bottom: 4rem;
+    margin-bottom: 3rem;
   }
 
   h1 {
-    font-size: clamp(2.5rem, 8vw, 5rem);
+    font-size: clamp(3rem, 10vw, 6rem);
     font-weight: 800;
     letter-spacing: -0.03em;
     line-height: 1.1;
@@ -80,53 +96,63 @@
   }
 
   .tagline {
-    font-size: 1.15rem;
+    font-size: 1.25rem;
     color: var(--muted);
-    margin-bottom: 2rem;
+    margin-bottom: 2.5rem;
   }
 
   .hero-big {
-    font-size: clamp(3rem, 10vw, 6rem);
+    font-size: clamp(4rem, 12vw, 8rem);
     font-weight: 900;
     letter-spacing: -0.03em;
     line-height: 1.1;
-    margin: 3rem 0 1.5rem;
+    margin: 4rem 0 2rem;
     color: var(--fg);
+    text-align: center;
   }
 
+  /* ImGui-style Button */
   .btn {
     display: inline-block;
-    padding: 0.85rem 2.5rem;
-    background: var(--fg);
-    color: var(--bg);
-    text-decoration: none;
+    padding: 1.2rem 3rem;
+    font-size: 1.1rem;
     font-weight: 600;
-    font-size: 1rem;
-    border-radius: 6px;
-    border: 1px solid var(--fg);
-    transition: all 0.2s ease;
-  }
-  .btn:hover {
-    background: var(--bg);
     color: var(--fg);
+    background: var(--accent);
+    border: 1px solid var(--border);
+    text-decoration: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 14rem;
+    text-align: center;
   }
+  .btn:hover { background: var(--accent-hover); }
+  .btn:active { background: var(--accent-active); }
 
   .features {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 2rem;
-    margin: 4rem 0;
+    margin: 3rem 0;
   }
 
+  .feature {
+    background: var(--hover);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1.8rem;
+  }
   .feature h3 {
-    font-size: 1rem;
+    font-size: 1.1rem;
     font-weight: 700;
-    margin-bottom: 0.35rem;
+    margin-bottom: 0.75rem;
+    color: var(--fg);
   }
-
   .feature p {
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     color: var(--muted);
+    line-height: 1.5;
   }
 
   hr {
@@ -136,58 +162,70 @@
   }
 
   footer {
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     color: var(--muted);
+    text-align: center;
+    margin-top: 2rem;
   }
 
   a {
-    color: var(--fg);
-    text-decoration: underline;
-    text-underline-offset: 2px;
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px dotted;
   }
-  a:hover { opacity: 0.7; }
+  a:hover { opacity: 0.8; }
+
+  /* Responsive adjustments */
+  @media (max-width: 600px) {
+    body { padding: 1rem; }
+    main { padding: 1.5rem; }
+    .btn { padding: 1rem 2.5rem; font-size: 1rem; }
+    .feature { padding: 1.5rem; }
+  }
 </style>
 </head>
 <body>
 
-<div id="splash">
-  <div id="splash-text"></div>
-</div>
-
-<main id="main">
-  <header>
-    <h1>ADBKing</h1>
-    <p class="tagline">Desktop ADB commander built for speed.</p>
-    <a class="btn" href="https://github.com/rajumark/seaweed/releases" target="_blank" rel="noopener">Download</a>
-  </header>
-
-  <div class="hero-big">100% opensource</div>
-
-  <div class="features">
-    <div class="feature">
-      <h3>Raw speed</h3>
-      <p>Native C++ with Dear ImGui. No web wrappers, no Electron.</p>
-    </div>
-    <div class="feature">
-      <h3>ADB at your fingertips</h3>
-      <p>Devices, apps, wireless, emulators &mdash; all in one window.</p>
-    </div>
-    <div class="feature">
-      <h3>Spotlight search</h3>
-      <p>Keyboard-first. Built-in command palette for everything.</p>
-    </div>
-    <div class="feature">
-      <h3>Cross-platform</h3>
-      <p>macOS, Linux, Windows. One binary, no runtime deps.</p>
-    </div>
+<div id="container">
+  <div id="splash">
+    <div id="splash-text"></div>
   </div>
 
-  <hr>
+  <main id="main">
+    <header>
+      <h1>ADBKing</h1>
+      <p class="tagline">Desktop ADB commander built for speed.</p>
+      <a class="btn" href="https://github.com/rajumark/seaweed/releases" target="_blank" rel="noopener">Download</a>
+    </header>
 
-  <footer>
-    <p><a href="https://github.com/rajumark/seaweed">Source on GitHub</a></p>
-  </footer>
-</main>
+    <div class="hero-big">100% opensource</div>
+
+    <div class="features">
+      <div class="feature">
+        <h3>Raw speed</h3>
+        <p>Native C++ with Dear ImGui. No web wrappers, no Electron.</p>
+      </div>
+      <div class="feature">
+        <h3>ADB at your fingertips</h3>
+        <p>Devices, apps, wireless, emulators &mdash; all in one window.</p>
+      </div>
+      <div class="feature">
+        <h3>Spotlight search</h3>
+        <p>Keyboard-first. Built-in command palette for everything.</p>
+      </div>
+      <div class="feature">
+        <h3>Cross-platform</h3>
+        <p>macOS, Linux, Windows. One binary, no runtime deps.</p>
+      </div>
+    </div>
+
+    <hr>
+
+    <footer>
+      <p><a href="https://github.com/rajumark/seaweed">Source on GitHub</a></p>
+    </footer>
+  </main>
+</div>
 
 <script>
 (function() {
